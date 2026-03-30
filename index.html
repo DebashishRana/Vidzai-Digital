@@ -44,6 +44,8 @@
 </div>
 
 <script>
+const BACKEND_URL = 'https://ekyc-backend-750223193485.asia-south2.run.app';
+
 document.getElementById('startBtn').addEventListener('click', async () => {
     const idFile = document.getElementById('idDocument').files[0];
     const selfieFile = document.getElementById('selfiePhoto').files[0];
@@ -68,7 +70,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         let formDataDocs = new FormData();
         formDataDocs.append("file", idFile);
 
-        const docRes = await fetch("http://localhost:8000/verify-full", {
+        const docRes = await fetch(`${BACKEND_URL}/verify-full`, {
             method: "POST",
             body: formDataDocs
         });
@@ -86,7 +88,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         formDataFace.append("id_photo", idFile);
         formDataFace.append("selfie", selfieFile);
 
-        const faceRes = await fetch("http://localhost:8000/verify-face", {
+        const faceRes = await fetch(`${BACKEND_URL}/verify-face`, {
             method: "POST",
             body: formDataFace
         });
@@ -102,7 +104,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         let formDataAddress = new FormData();
         formDataAddress.append("file", idFile);
 
-        const addrRes = await fetch("http://localhost:8000/detect-address", {
+        const addrRes = await fetch(`${BACKEND_URL}/detect/address`, {
             method: "POST",
             body: formDataAddress
         });

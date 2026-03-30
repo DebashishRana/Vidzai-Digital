@@ -1,5 +1,5 @@
 // Base API URL
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = 'https://ekyc-backend-750223193485.asia-south2.run.app';
 
 // Global Data Arrays
 let verificationData = [];
@@ -45,13 +45,14 @@ document.addEventListener('DOMContentLoaded', async function() {
 async function fetchDashboardData() {
     try {
         const [verRes, alertRes, docRes] = await Promise.all([
-            fetch(`${API_BASE_URL}/dashboard/verifications`),
-            fetch(`${API_BASE_URL}/dashboard/alerts`),
-            fetch(`${API_BASE_URL}/dashboard/documents`)
+            fetch(`${API_BASE_URL}/verifications`),
+            fetch(`${API_BASE_URL}/alerts`),
+            fetch(`${API_BASE_URL}/documents`)
         ]);
 
         if (verRes.ok) {
-            const vData = await verRes.json();
+            const vPayload = await verRes.json();
+            const vData = Array.isArray(vPayload) ? vPayload : (vPayload.verifications || []);
             // Map backend schema to frontend expected formats
             verificationData = vData.map(v => ({
                 id: v.id,
@@ -65,10 +66,11 @@ async function fetchDashboardData() {
         }
 
         if (alertRes.ok) {
-            const aData = await alertRes.json();
+            const aPayload = await alertRes.json();
+            const aData = Array.isArray(aPayload) ? aPayload : (aPayload.alerts || []);
             alertData = aData.map(a => ({
                 id: a.id,
-                name: 'User ' + a.user_id,
+                name: 'User ' + (a.user_id || 'N/A'),
                 risk: a.risk_level,
                 type: a.alert_type,
                 date: new Date(a.created_at).toISOString().split('T')[0],
@@ -77,13 +79,14 @@ async function fetchDashboardData() {
         }
 
         if (docRes.ok) {
-            const dData = await docRes.json();
+            const dPayload = await docRes.json();
+            const dData = Array.isArray(dPayload) ? dPayload : (dPayload.documents || []);
             documentData = dData.map(d => ({
                 id: d.id,
-                type: d.type,
+                type: d.type || 'Document',
                 name: 'User ' + d.user_id,
                 date: new Date(d.created_at).toISOString().split('T')[0],
-                status: d.status.toLowerCase()
+                status: (d.status || 'processed').toLowerCase()
             }));
         }
     } catch (e) {
