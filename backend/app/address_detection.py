@@ -105,7 +105,11 @@ class AddressDetector:
             self.model = None
 
         print("Initializing EasyOCR...")
-        self.reader = easyocr.Reader(['en'], gpu=False)
+        try:
+            self.reader = easyocr.Reader(['en'], gpu=False)
+        except Exception as e:
+            print(f"Warning: EasyOCR init failed: {str(e)}")
+            self.reader = None
         
         print("✅ Models loaded successfully")
 
@@ -257,6 +261,10 @@ class AddressDetector:
                             yolo_conf = float(np.mean(confs))
                 except Exception as model_exc:
                     print(f"Warning: YOLO inference failed, using full image OCR: {model_exc}")
+
+            if self.reader is None:
+                print("Warning: OCR reader unavailable, skipping address extraction")
+                return None
 
             # OCR extraction on detected crop, with full-image fallback if needed
             ocr_result = self.reader.readtext(crop, detail=1)

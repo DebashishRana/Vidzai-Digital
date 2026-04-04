@@ -23,9 +23,15 @@ def get_detector():
                 status_code=503,
                 detail=f"Address detection models not fully loaded: {str(e)}. Please train the models first."
             )
+        except Exception as e:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Address detector initialization failed: {str(e)}"
+            )
     return _detector
 
 
+@router.post("/detect/address")
 @router.post("/detect-address")
 async def detect_address(file: UploadFile = File(..., description="Document image for address detection")):
     """
@@ -86,6 +92,7 @@ async def detect_address(file: UploadFile = File(..., description="Document imag
 
 
 @router.get("/detect-address/status")
+@router.get("/detect/address/status")
 async def address_detection_status():
     """Check address detection model status."""
     try:
@@ -117,6 +124,7 @@ async def address_detection_status():
 
 
 @router.post("/detect-address/batch")
+@router.post("/detect/address/batch")
 async def detect_address_batch(files: list[UploadFile] = File(..., description="Multiple document images")):
     """
     Batch Address Detection

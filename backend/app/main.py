@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import document, ocr, verification, dashboard, address, verification_logs
+from app.address_detection import initialize_detector
 
 app = FastAPI(
     title="KYC Verification Setup G13-M10",
@@ -23,6 +24,17 @@ app.include_router(verification.router, prefix="/api/v1")
 app.include_router(address.router, prefix="/api/v1")
 app.include_router(verification_logs.router, prefix="/api/v1")
 app.include_router(dashboard.router, prefix="/api/v1/dashboard")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Load detector on startup but do not fail service if model init fails."""
+    try:
+        print("🚀 Initializing address detector...")
+        initialize_detector()
+        print("✅ Address detector initialized")
+    except Exception as e:
+        print(f"⚠️ Address detector init failed, continuing in degraded mode: {str(e)}")
 
 
 @app.get("/health")
