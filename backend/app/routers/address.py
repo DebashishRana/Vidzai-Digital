@@ -3,11 +3,41 @@ from app.address_detection import AddressDetector
 import tempfile
 from pathlib import Path
 import uuid
+import json
+import time
 
 router = APIRouter()
 
 ALLOWED_TYPES = {"image/jpeg", "image/png"}
 MAX_SIZE = 10 * 1024 * 1024  # 10 MB
+
+_DEBUG_SESSION_ID = "96abd7"
+def _workspace_root() -> Path:
+    here = Path(__file__).resolve()
+    for parent in [here.parent, *here.parents]:
+        if (parent / ".git").exists():
+            return parent
+    # Fallback: best effort (repo root in this workspace layout)
+    return here.parents[4]
+
+_DEBUG_LOG_PATH = _workspace_root() / "debug-96abd7.log"
+
+def _dbg(hypothesis_id: str, location: str, message: str, data: dict, run_id: str = "pre-fix") -> None:
+    try:
+        payload = {
+            "sessionId": _DEBUG_SESSION_ID,
+            "runId": run_id,
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "message": message,
+            "data": data,
+            "timestamp": int(time.time() * 1000),
+        }
+        _DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with _DEBUG_LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
 
 # Initialize detector globally (lazy load)
 _detector = None
@@ -53,6 +83,12 @@ async def detect_address(file: UploadFile = File(..., description="Document imag
 
     temp_file = None
     try:
+        _dbg(
+            "H1",
+            "main/backend/app/routers/address.py:detect_address",
+            "Received upload for address detection",
+            {"filename": file.filename, "content_type": file.content_type, "size_bytes": len(contents)},
+        )
         # Save uploaded file to temporary location
         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
             tmp.write(contents)
@@ -60,9 +96,25 @@ async def detect_address(file: UploadFile = File(..., description="Document imag
 
         # Load detector and perform inference
         detector = get_detector()
+        _dbg(
+            "H2",
+            "main/backend/app/routers/address.py:detect_address",
+            "Detector initialized (lazy-load)",
+            {
+                "has_yolo_model": bool(getattr(detector, "model", None)),
+                "has_ocr_reader": bool(getattr(detector, "reader", None)),
+                "temp_file_suffix": Path(temp_file).suffix if temp_file else None,
+            },
+        )
         result = detector.detect_and_extract(temp_file)
 
         if result is None:
+            _dbg(
+                "H3",
+                "main/backend/app/routers/address.py:detect_address",
+                "No address extracted (detector returned None)",
+                {"temp_file": bool(temp_file)},
+            )
             return {
                 "status": "not_found",
                 "success": False,
@@ -72,6 +124,16 @@ async def detect_address(file: UploadFile = File(..., description="Document imag
                 "detection_id": f"ADDR{str(uuid.uuid4().hex[:6]).upper()}"
             }
 
+        _dbg(
+            "H4",
+            "main/backend/app/routers/address.py:detect_address",
+            "Address extracted successfully",
+            {
+                "address_len": len(result.get("address", "") or ""),
+                "confidence": result.get("confidence", 0.0),
+                "image_name": result.get("image_name"),
+            },
+        )
         return {
             "status": "success",
             "success": True,

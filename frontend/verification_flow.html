@@ -416,6 +416,11 @@
 
 <script>
 const RAW_API_BASE = localStorage.getItem('API_BASE_URL') || 'http://localhost:8000';
+// #region agent log
+function _dbg(hypothesisId, location, message, data, runId = 'pre-fix') {
+    fetch('http://127.0.0.1:7304/ingest/bd9218fd-51b6-4011-97c7-c377eec26cb0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'96abd7'},body:JSON.stringify({sessionId:'96abd7',location,message,data,timestamp:Date.now(),runId,hypothesisId})}).catch(()=>{});
+}
+// #endregion
 
 function normalizeBaseUrl(url) {
     return (url || '').trim().replace(/\/+$/, '');
@@ -424,6 +429,9 @@ function normalizeBaseUrl(url) {
 const BASE_URL = normalizeBaseUrl(RAW_API_BASE);
 const API_V1_BASE = BASE_URL.endsWith('/api/v1') ? BASE_URL : `${BASE_URL}/api/v1`;
 const LEGACY_BASE = BASE_URL.endsWith('/api/v1') ? BASE_URL.replace(/\/api\/v1$/, '') : BASE_URL;
+// #region agent log
+_dbg('H11','main/frontend/verification_flow.html:init','Resolved backend base URLs',{RAW_API_BASE,BASE_URL,API_V1_BASE,LEGACY_BASE});
+// #endregion
 
 async function postFormWithFallback(v1Path, legacyPath, formData) {
     const v1Url = `${API_V1_BASE}${v1Path}`;
@@ -609,9 +617,15 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         const addrCall = await postFormWithFallback('/detect-address', '/detect/address', formDataAddress);
         const addrRes = addrCall.response;
         console.log('detect-address URL used:', addrCall.url, 'mode:', addrCall.mode);
+        // #region agent log
+        _dbg('H12','main/frontend/verification_flow.html:address','Address detection request completed',{urlUsed: addrCall.url, mode: addrCall.mode, httpStatus: addrRes && addrRes.status});
+        // #endregion
 
         if (addrRes.ok) {
             const addrData = await addrRes.json();
+            // #region agent log
+            _dbg('H13','main/frontend/verification_flow.html:address','Address detection JSON received',{status: addrData && addrData.status, hasAddress: !!(addrData && addrData.address), addressLen: (addrData && addrData.address ? String(addrData.address).length : 0)});
+            // #endregion
             if (addrData.status === 'success' && addrData.address) {
                 addrScore = 0.20;
                 detectedAddress = addrData.address;
