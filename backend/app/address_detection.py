@@ -170,6 +170,7 @@ class AddressDetector:
 
     @staticmethod
     def _extract_address_from_lines(lines: list[str]) -> str:
+        """Extract address from OCR lines with relaxed requirements for Aadhaar cards."""
         if not lines:
             return ""
 
@@ -184,11 +185,14 @@ class AddressDetector:
             "pin code", "area", "locality", "phase", "extension", "ext", "main", "cross",
             "layout", "tower", "complex", "residency", "residence", "villa", "villas",
             "heights", "plaza", "mall", "market", "chowk", "landmark", "opp", "opposite",
-            "beside", "nearby", "in front of", "path", "highway", "nh", "sh", "bypass", "ring road"
+            "beside", "nearby", "in front of", "path", "highway", "nh", "sh", "bypass", "ring road",
+            # Additional Aadhaar-specific keywords
+            "building", "block", "apartment", "premises", "location", "city", "state", "country",
+            "floor", "unit", "society", "complex", "towers"
         }
         non_address_markers = {
             "name", "dob", "birth", "gender", "aadhaar", "aadhar", "government",
-            "uidai", "father", "husband"
+            "uidai", "father", "husband", "spouse", "mother"
         }
 
         scored: list[tuple[float, int, str]] = []
@@ -217,9 +221,13 @@ class AddressDetector:
             positive_hits = AddressDetector._term_hits(line, AddressDetector.POSITIVE_ADDRESS_KEYWORDS)
             has_digit = 1 if re.search(r'\d', line) else 0
             has_pin = 2 if re.search(r'\b\d{6}\b', line) else 0
+            
+            # For Aadhaar cards: relax scoring - score based on length + keywords, not strict requirements
+            has_comma_or_slash = 1 if re.search(r'[,/]', line) else 0
+            line_length_bonus = min(2, len(line) // 20)  # Bonus for longer lines
 
-            score = (2 * keyword_hits) + (2 * positive_hits) + has_digit + has_pin - non_address_hits - (2 * medium_hits) - weak_hits
-            if score > 0:
+            score = (2 * keyword_hits) + (2 * positive_hits) + has_digit + has_pin + has_comma_or_slash + line_length_bonus - non_address_hits - (2 * medium_hits) - weak_hits
+            if score > 0 or (len(line) > 20 and has_digit and not non_address_hits > 1):
                 scored.append((score, idx, line))
 
         if not scored:
@@ -227,7 +235,7 @@ class AddressDetector:
 
         scored.sort(key=lambda x: (-x[0], x[1]))
         best_score = scored[0][0]
-        min_score = max(1.0, best_score * 0.5)
+        min_score = max(0.5, best_score * 0.4)  # Relaxed minimum score threshold
 
         selected = sorted((idx, line) for score, idx, line in scored if score >= min_score)
         grouped: list[list[str]] = []
@@ -235,7 +243,7 @@ class AddressDetector:
         last_idx = None
 
         for idx, line in selected:
-            if last_idx is None or idx - last_idx <= 1:
+            if last_idx is None or idx - last_idx <= 2:  # Allow gaps of up to 2 lines
                 current_group.append(line)
             else:
                 if current_group:
@@ -263,13 +271,17 @@ class AddressDetector:
 
         medium_hits = AddressDetector._term_hits(candidate, AddressDetector.MEDIUM_NEGATIVE_TERMS)
         weak_hits = AddressDetector._term_hits(candidate, AddressDetector.WEAK_NEGATIVE_TERMS)
-        if medium_hits >= 2 or (medium_hits >= 1 and weak_hits >= 2):
+        if medium_hits >= 3 or (medium_hits >= 2 and weak_hits >= 3):
             return ""
 
-        if AddressDetector._term_hits(candidate, AddressDetector.POSITIVE_ADDRESS_KEYWORDS) == 0:
+        # RELAXED: For Aadhaar cards, don't require positive keywords if line is long enough and has digits
+        has_address_keyword = AddressDetector._term_hits(candidate, AddressDetector.POSITIVE_ADDRESS_KEYWORDS) > 0
+        is_long_with_digits = len(candidate) > 20 and re.search(r'\d', candidate)
+        
+        if not has_address_keyword and not is_long_with_digits:
             return ""
 
-        if len(candidate) < 12 or len(candidate.split()) < 3:
+        if len(candidate) < 10 or len(candidate.split()) < 2:  # Relaxed: min 10 chars, 2 words instead of 12/3
             return ""
 
         return candidate
@@ -277,6 +289,7 @@ class AddressDetector:
     def detect_and_extract(self, image_path: str) -> Optional[Dict]:
         """
         Detect address region in image and extract text via OCR.
+        For Aadhaar cards, processes full image for better accuracy (YOLO is optional).
         """
         try:
             img = cv2.imread(image_path)
@@ -284,14 +297,16 @@ class AddressDetector:
                 return None
 
             h, w = img.shape[:2]
-            crop = img
+            crop = img  # Default to full image for Aadhaar cards
             yolo_conf = 0.0
+            used_yolo = False
             
-            # If YOLO loaded successfully, crop the image first
+            # Attempt YOLO detection (optional - for invoice/document localization)
             if self.model:
                 try:
                     results = self.model.predict(source=image_path, conf=0.20, verbose=False)
                     if results and hasattr(results[0], "boxes") and len(results[0].boxes) > 0:
+                        used_yolo = True
                         boxes = results[0].boxes.xyxy.cpu().numpy()
                         confs = results[0].boxes.conf.cpu().numpy() if hasattr(results[0].boxes, "conf") else np.array([])
 
@@ -306,15 +321,19 @@ class AddressDetector:
                         if confs.size > 0:
                             yolo_conf = float(np.mean(confs))
                 except Exception as model_exc:
-                    print(f"Warning: YOLO inference failed, using full image OCR: {model_exc}")
+                    print(f"Note: YOLO inference attempted but not required: {model_exc}")
+                    # Continue with full image - YOLO is optional for Aadhaar
 
             if self.reader is None:
                 print("Warning: OCR reader unavailable, skipping address extraction")
                 return None
 
-            # OCR extraction on detected crop, with full-image fallback if needed
+            # OCR extraction on detected crop, or full image for Aadhaar
             ocr_result = self.reader.readtext(crop, detail=1)
-            if not ocr_result and crop is not img:
+            
+            # Always try full image if crop didn't yield results or if YOLO wasn't used
+            if (not ocr_result or len(ocr_result) < 3) and used_yolo and crop is not img:
+                print("Cropped region had limited results, trying full image...")
                 ocr_result = self.reader.readtext(img, detail=1)
 
             lines = []
@@ -329,10 +348,12 @@ class AddressDetector:
 
             clean_address = self._extract_address_from_lines(lines)
             if not clean_address:
+                print(f"No address extracted from {len(lines)} OCR lines")
                 return None
 
             ocr_conf = float(np.mean(confs)) if confs else 0.0
-            confidence = ocr_conf if yolo_conf <= 0 else (0.6 * ocr_conf + 0.4 * yolo_conf)
+            # Use only OCR confidence for Aadhaar (no YOLO weighting)
+            confidence = ocr_conf
             confidence = float(max(0.0, min(1.0, confidence)))
 
             return {
@@ -343,6 +364,8 @@ class AddressDetector:
             
         except Exception as e:
             print(f"Error processing {image_path}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
 
 
