@@ -276,11 +276,39 @@ function updateDashboardStats() {
     const flagged = verificationData.filter(d => d.status === 'flagged').length;
     const pending = verificationData.filter(d => d.status === 'pending').length;
     
-    // Update stats with animation
+    // Average Confidence
+    let totalConf = 0;
+    verificationData.forEach(d => {
+        totalConf += (d.confidence || 0); // Assuming confidence is 0-1, adjusting to %
+    });
+    const avgConfidence = total > 0 ? (totalConf / total) * 100 : 0;
+    
+    // Update stats with animation (Top nav items)
     animateValue('totalApps', 0, total, 1000);
     animateValue('verifiedCount', 0, verified, 1000);
     animateValue('flaggedCount', 0, flagged, 1000);
     animateValue('pendingCount', 0, pending, 1000);
+
+    // Update the new System Metrics dashboard grid
+    const dashVerifiedEl = document.getElementById('dashVerified');
+    if (dashVerifiedEl) {
+        animateValue('dashTotalVerifications', 0, total, 1000);
+        animateValue('dashVerified', 0, verified, 1000);
+        animateValue('dashFlagged', 0, flagged, 1000);
+        // Animate the % separately
+        const avgEl = document.getElementById('dashAvgConfidence');
+        if (avgEl) {
+            let start = 0, current = 0, inc = avgConfidence / 60;
+            let timer = setInterval(() => {
+                current += inc;
+                if (current >= avgConfidence) {
+                    current = avgConfidence;
+                    clearInterval(timer);
+                }
+                avgEl.innerText = Math.round(current) + '%';
+            }, 16);
+        }
+    }
 }
 
 // Animate number changes

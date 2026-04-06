@@ -9,9 +9,38 @@ import re
 from typing import Optional, Dict
 import easyocr
 from ultralytics import YOLO
+import json
+import time
 
 # Load models from backend storage
 MODELS_DIR = Path(__file__).parent / "models"
+
+_DEBUG_SESSION_ID = "96abd7"
+def _workspace_root() -> Path:
+    here = Path(__file__).resolve()
+    for parent in [here.parent, *here.parents]:
+        if (parent / ".git").exists():
+            return parent
+    return here.parents[2]
+
+_DEBUG_LOG_PATH = _workspace_root() / "debug-96abd7.log"
+
+def _dbg(hypothesis_id: str, location: str, message: str, data: dict, run_id: str = "pre-fix") -> None:
+    try:
+        payload = {
+            "sessionId": _DEBUG_SESSION_ID,
+            "runId": run_id,
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "message": message,
+            "data": data,
+            "timestamp": int(time.time() * 1000),
+        }
+        _DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with _DEBUG_LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
 
 class AddressDetector:
     DISALLOWED_ID_PATTERNS = [
@@ -171,6 +200,7 @@ class AddressDetector:
     @staticmethod
     def _extract_address_from_lines(lines: list[str]) -> str:
         if not lines:
+            _dbg("H5", "backend/app/address_detection.py:_extract_address_from_lines", "No OCR lines to score", {"lines": 0})
             return ""
 
         address_keywords = {
@@ -223,6 +253,15 @@ class AddressDetector:
                 scored.append((score, idx, line))
 
         if not scored:
+            _dbg(
+                "H6",
+                "backend/app/address_detection.py:_extract_address_from_lines",
+                "No candidate lines survived scoring",
+                {
+                    "total_lines": len(lines),
+                    "sample_lines": [AddressDetector._clean_text(l)[:120] for l in lines[:6]],
+                },
+            )
             return ""
 
         scored.sort(key=lambda x: (-x[0], x[1]))
@@ -251,6 +290,18 @@ class AddressDetector:
 
         candidate = max((" ".join(group) for group in grouped), key=len)
         candidate = AddressDetector._clean_text(candidate)
+
+        _dbg(
+            "H7",
+            "backend/app/address_detection.py:_extract_address_from_lines",
+            "Built address candidate from scored groups",
+            {
+                "total_lines": len(lines),
+                "scored_lines": len(scored),
+                "best_score": best_score,
+                "candidate_preview": candidate[:200],
+            },
+        )
 
         if any(pattern.search(candidate) for pattern in AddressDetector.DOB_PATTERNS):
             return ""
@@ -281,6 +332,7 @@ class AddressDetector:
         try:
             img = cv2.imread(image_path)
             if img is None:
+                _dbg("H8", "backend/app/address_detection.py:detect_and_extract", "cv2.imread returned None", {"image_path": str(image_path)})
                 return None
 
             h, w = img.shape[:2]
@@ -310,6 +362,7 @@ class AddressDetector:
 
             if self.reader is None:
                 print("Warning: OCR reader unavailable, skipping address extraction")
+                _dbg("H9", "backend/app/address_detection.py:detect_and_extract", "EasyOCR reader unavailable", {"has_model": bool(self.model)})
                 return None
 
             # OCR extraction on detected crop, with full-image fallback if needed
@@ -329,6 +382,18 @@ class AddressDetector:
 
             clean_address = self._extract_address_from_lines(lines)
             if not clean_address:
+                _dbg(
+                    "H10",
+                    "backend/app/address_detection.py:detect_and_extract",
+                    "OCR ran but address extraction returned empty",
+                    {
+                        "ocr_items": len(ocr_result) if ocr_result is not None else None,
+                        "lines_count": len(lines),
+                        "lines_preview": [self._clean_text(l)[:120] for l in lines[:6]],
+                        "yolo_used": bool(self.model),
+                        "yolo_conf": yolo_conf,
+                    },
+                )
                 return None
 
             ocr_conf = float(np.mean(confs)) if confs else 0.0

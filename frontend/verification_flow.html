@@ -417,36 +417,101 @@
 <script>
 const RAW_API_BASE = localStorage.getItem('API_BASE_URL') || 'http://localhost:8000';
 
-function normalizeBaseUrl(url) {
-    return (url || '').trim().replace(/\/+$/, '');
+function sanitizeBaseUrl(url) {
+    let value = (url || '').trim();
+    // Handle accidental quoted values persisted in localStorage.
+    value = value.replace(/^['"]+|['"]+$/g, '');
+    value = value.replace(/\/+$/, '');
+    value = value.replace(/\/api\/v1$/, '');
+    // Filter out old/stale backend URLs that are known to be down
+    if (value.includes('ekyc-backend-750223193485')) {
+        return '';
+    }
+    return value;
 }
 
-const BASE_URL = normalizeBaseUrl(RAW_API_BASE);
-const API_V1_BASE = BASE_URL.endsWith('/api/v1') ? BASE_URL : `${BASE_URL}/api/v1`;
-const LEGACY_BASE = BASE_URL.endsWith('/api/v1') ? BASE_URL.replace(/\/api\/v1$/, '') : BASE_URL;
+function buildBaseCandidates() {
+    const configured = sanitizeBaseUrl(RAW_API_BASE);
+    const isLocalUi = ['localhost', '127.0.0.1'].includes((window.location && window.location.hostname) || '');
+    // When UI is running locally, prioritize local API first.
+    const defaults = isLocalUi ? [
+        configured,
+        'http://localhost:8000',
+        'https://ekyc-backend-5jmu4hau4a-em.a.run.app',
+        'https://ekyc-backend-750223193485.asia-south2.run.app'
+    ] : [
+        configured,
+        'https://ekyc-backend-5jmu4hau4a-em.a.run.app',
+        'http://localhost:8000',
+        'https://ekyc-backend-750223193485.asia-south2.run.app'
+    ];
+
+    const unique = [];
+    for (const base of defaults) {
+        if (!base || unique.includes(base)) {
+            continue;
+        }
+        unique.push(base);
+    }
+    
+    // Clear old stale URLs from localStorage to prevent reuse
+    if (configured.includes('750223193485')) {
+        localStorage.removeItem('API_BASE_URL');
+    }
+    
+    return unique;
+}
+
+const BASE_CANDIDATES = buildBaseCandidates();
+const PRIMARY_BASE = BASE_CANDIDATES[0];
+const API_V1_BASE = `${PRIMARY_BASE}/api/v1`;
+const LEGACY_BASE = PRIMARY_BASE;
+// #region agent log
+function _dbg(hypothesisId, location, message, data, runId = 'pre-fix') {
+    fetch('http://127.0.0.1:7304/ingest/bd9218fd-51b6-4011-97c7-c377eec26cb0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'96abd7'},body:JSON.stringify({sessionId:'96abd7',location,message,data,timestamp:Date.now(),runId,hypothesisId})}).catch(()=>{});
+}
+_dbg('H11','frontend/verification_flow.html:init','Resolved backend base candidates',{RAW_API_BASE,BASE_CANDIDATES,PRIMARY_BASE,API_V1_BASE,LEGACY_BASE});
+// #endregion
 
 async function postFormWithFallback(v1Path, legacyPath, formData) {
-    const v1Url = `${API_V1_BASE}${v1Path}`;
-    try {
-        const v1Res = await fetch(v1Url, {
-            method: 'POST',
-            body: formData
-        });
+    let lastError = null;
+    const filteredCandidates = BASE_CANDIDATES.filter(b => !b.includes('750223193485'));
 
-        // Keep api/v1 response for success and client-side validation errors.
-        if (v1Res.ok || (v1Res.status !== 404 && v1Res.status < 500)) {
-            return { response: v1Res, url: v1Url, mode: 'api_v1' };
+    for (const base of filteredCandidates) {
+        const v1Url = `${base}/api/v1${v1Path}`;
+        try {
+            const v1Res = await fetch(v1Url, {
+                method: 'POST',
+                body: formData
+            });
+
+            // Keep api/v1 response for success and client-side validation errors.
+            if (v1Res.ok || (v1Res.status !== 404 && v1Res.status < 500)) {
+                return { response: v1Res, url: v1Url, mode: 'api_v1' };
+            }
+        } catch (error) {
+            lastError = error;
         }
-    } catch (_) {
-        // Network/CORS failures should attempt legacy endpoint as fallback.
+
+        const legacyUrl = `${base}${legacyPath}`;
+        try {
+            const legacyRes = await fetch(legacyUrl, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (legacyRes.ok || legacyRes.status !== 404) {
+                return { response: legacyRes, url: legacyUrl, mode: 'legacy' };
+            }
+        } catch (error) {
+            lastError = error;
+        }
     }
 
-    const legacyUrl = `${LEGACY_BASE}${legacyPath}`;
-    const legacyRes = await fetch(legacyUrl, {
-        method: 'POST',
-        body: formData
-    });
-    return { response: legacyRes, url: legacyUrl, mode: 'legacy' };
+    if (lastError) {
+        throw lastError;
+    }
+    throw new Error('No compatible backend endpoint found');
 }
 
 let currentMode = 'single';
@@ -609,9 +674,15 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         const addrCall = await postFormWithFallback('/detect-address', '/detect/address', formDataAddress);
         const addrRes = addrCall.response;
         console.log('detect-address URL used:', addrCall.url, 'mode:', addrCall.mode);
+        // #region agent log
+        _dbg('H12','frontend/verification_flow.html:address','Address detection request completed',{urlUsed: addrCall.url, mode: addrCall.mode, httpStatus: addrRes && addrRes.status});
+        // #endregion
 
         if (addrRes.ok) {
             const addrData = await addrRes.json();
+            // #region agent log
+            _dbg('H13','frontend/verification_flow.html:address','Address detection JSON received',{status: addrData && addrData.status, hasAddress: !!(addrData && addrData.address), addressLen: (addrData && addrData.address ? String(addrData.address).length : 0)});
+            // #endregion
             if (addrData.status === 'success' && addrData.address) {
                 addrScore = 0.20;
                 detectedAddress = addrData.address;
@@ -766,21 +837,26 @@ async function saveVerificationRecord(verifyId, docType, score, status, address,
             verification_details: verificationDetails
         };
 
-        const saveCandidates = [
-            `${API_V1_BASE}/save-verification`,
-            `${LEGACY_BASE}/save-verification`
-        ];
+        const saveCandidates = [];
+        for (const base of BASE_CANDIDATES) {
+            saveCandidates.push(`${base}/api/v1/save-verification`);
+            saveCandidates.push(`${base}/save-verification`);
+        }
 
         let response = null;
         for (const url of saveCandidates) {
-            const attempted = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (attempted.status !== 404) {
-                response = attempted;
-                break;
+            try {
+                const attempted = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (attempted.status !== 404) {
+                    response = attempted;
+                    break;
+                }
+            } catch (_) {
+                // Try next backend candidate.
             }
         }
 

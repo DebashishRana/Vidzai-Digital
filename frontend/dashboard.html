@@ -69,8 +69,8 @@
             <!-- Top Bar -->
             <div class="top-bar">
                 <div class="page-title">
-                    <h1>KYC Verification Dashboard</h1>
-                    <p class="welcome-text">AI-Powered Identity Verification & Fraud Detection for KYC Compliance</p>
+                    <h1>Good Afternoon Dev!</h1>
+                    <p class="welcome-text">Let's get started!</p>
                 </div>
                 <div class="action-buttons-row">
                     <button class="action-btn primary" onclick="triggerUpload()">📤 Upload Batch
@@ -161,60 +161,31 @@
                     </table>
                 </div>
 
-                <!-- Risk Case Review with 6 Buttons -->
-                <div class="grid-card risk-card">
-                    <h2>Risk Case Review</h2>
-                    <div class="risk-content">
-                        <p class="risk-case" style="color: #6b7280; font-style: italic;">No pending risk cases to review.</p>
-                        <div class="risk-actions six-buttons">
-                            <button class="risk-btn confirm" onclick="confirmFraud()" disabled>Confirm Fraud</button>
-                            <button class="risk-btn clear" onclick="clearCase()" disabled>Clear Case</button>
-                            <button class="risk-btn review" onclick="reviewCase('')" disabled>Review</button>
-                            <button class="risk-btn escalate" onclick="escalateCase()" disabled>Escalate</button>
-                            <button class="risk-btn investigate" onclick="investigateCase()" disabled>Investigate</button>
-                            <button class="risk-btn flag" onclick="flagCase()" disabled>Flag</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Document Upload Section -->
-                    <div class="new-verification">
-                        <h3>Document Upload</h3>
-                        <div class="upload-grid-six">
-                            <button class="upload-option" onclick="document.getElementById('frontCameraInput').click()">
-                                <span>📸</span> Front Camera
-                            </button>
-                            <button class="upload-option" onclick="document.getElementById('backCameraInput').click()">
-                                <span>📸</span> Back Camera
-                            </button>
-                            <button class="upload-option" onclick="document.getElementById('selfieInput').click()">
-                                <span>🎥</span> Selfie
-                            </button>
-                            <button class="upload-option" onclick="document.getElementById('aadharInput').click()">
-                                <span>🆔</span> Aadhaar
-                            </button>
-                            <button class="upload-option" onclick="document.getElementById('utilityInput').click()">
-                                <span>💡</span> Utility
-                            </button>
-                            <button class="upload-option" onclick="document.getElementById('addressInput').click()">
-                                <span>📍</span> Address
-                            </button>
+                <!-- KPI Metrics Summary (From Analytics) -->
+                <div class="grid-card risk-card" style="display: flex; flex-direction: column; justify-content: center;">
+                    <h2 style="margin-bottom: 20px; font-size: 18px; font-weight: 600; color: #111827;">System Metrics</h2>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: center;">
+                        
+                        <div style="background: #f9fafb; padding: 24px; border-radius: 12px; border: 1px solid #e5e7eb;">
+                            <p style="font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.5px;">Avg. Confidence Score</p>
+                            <p id="dashAvgConfidence" style="font-size: 32px; font-weight: 700; color: #0d9488; margin: 0;">0%</p>
                         </div>
                         
-                        <!-- Upload Status -->
-                        <div id="uploadStatus" class="upload-status"></div>
-                    </div>
-                </div>
+                        <div style="background: #f9fafb; padding: 24px; border-radius: 12px; border: 1px solid #e5e7eb;">
+                            <p style="font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.5px;">Total Verifications</p>
+                            <p id="dashTotalVerifications" style="font-size: 32px; font-weight: 700; color: #111827; margin: 0;">0</p>
+                        </div>
 
-                <!-- AI Verification Result -->
-                <div class="grid-card result-card">
-                    <h2>AI Verification Result</h2>
-                    <div class="result-items">
-                        <div class="result-item"><span>Face Match Score:</span><span class="result-value text-muted">Waiting...</span></div>
-                        <div class="result-item"><span>Document Authenticity:</span><span class="result-value text-muted">Waiting...</span></div>
-                        <div class="result-item"><span>Liveness Detection:</span><span class="result-value text-muted">Waiting...</span></div>
-                        <div class="result-item"><span>Aadhaar OCR:</span><span class="result-value text-muted">Waiting...</span></div>
-                        <div class="result-item"><span>Address Verification:</span><span class="result-value text-muted">Waiting...</span></div>
-                        <div class="result-item"><span>Signature Match:</span><span class="result-value text-muted">Waiting...</span></div>
+                        <div style="background: #ecfdf5; padding: 24px; border-radius: 12px; border: 1px solid #a7f3d0;">
+                            <p style="font-size: 13px; color: #059669; font-weight: 600; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.5px;">Auto-Verified</p>
+                            <p id="dashVerified" style="font-size: 32px; font-weight: 700; color: #059669; margin: 0;">0</p>
+                        </div>
+
+                        <div style="background: #fef2f2; padding: 24px; border-radius: 12px; border: 1px solid #fecaca;">
+                            <p style="font-size: 13px; color: #dc2626; font-weight: 600; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.5px;">Flagged Reviews</p>
+                            <p id="dashFlagged" style="font-size: 32px; font-weight: 700; color: #dc2626; margin: 0;">0</p>
+                        </div>
+                        
                     </div>
                 </div>
 
