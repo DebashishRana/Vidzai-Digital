@@ -1,0 +1,39 @@
+{
+  "model_type": "FaceNet + Ensemble Similarity",
+  "model_file": "D:\\Python\\Infosys\\main\\backend\\app\\models\\face_verification_model.joblib",
+  "created_at": "2026-03-25 10:31:32.543781",
+  "config": {
+    "img_size": [
+      160,
+      160
+    ],
+    "augmentation_count": 5,
+    "embedding_dimension": 128,
+    "similarity_method": "ensemble",
+    "ensemble_weights": {
+      "cosine": 0.7,
+      "l2": 0.3
+    }
+  },
+  "thresholds": {
+    "best_accuracy": {
+      "value": 0.9999998807907104,
+      "accuracy": 0.873015873015873,
+      "f1": 0.873015873015873
+    },
+    "youden": {
+      "value": 1.0,
+      "accuracy": 0.5,
+      "f1": 0.0
+    }
+  },
+  "metrics": {
+    "total_persons": 9,
+    "total_pairs": 126,
+    "genuine_pairs": 63,
+    "impostor_pairs": 63,
+    "auc_roc": 0.8684807256235827,
+    "far": 0.12698412698412698,
+    "frr": 0.12698412698412698
+  }
+}

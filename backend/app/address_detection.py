@@ -118,7 +118,8 @@ class AddressDetector:
         "marg",
         "path",
         "highway", "nh", "sh",
-        "bypass",
+        "bypass"
+        "road",
         "ring road",
     }
 

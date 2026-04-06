@@ -1,0 +1,8 @@
+{
+  "model_type": "yolov8s",
+  "ocr_languages": [
+    "en"
+  ],
+  "model_path": "D:\\Python\\Infosys\\main\\backend\\app\\models\\model_config.json",
+  "description": "YOLO Address Detection + EasyOCR"
+}
