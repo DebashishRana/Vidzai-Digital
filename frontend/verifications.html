@@ -115,7 +115,9 @@
 
     <script src="script.js"></script>
     <script>
-        const BACKEND_URL = 'http://localhost:8000/api/v1';
+        const RAW_API_BASE_URL = localStorage.getItem('API_BASE_URL') || 'http://localhost:8000';
+        const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, '');
+        const API_ROOT_URL = API_BASE_URL.endsWith('/api/v1') ? API_BASE_URL.replace(/\/api\/v1$/, '') : API_BASE_URL;
         
         // Load current user
         let currentUser = JSON.parse(localStorage.getItem('currentUser'));
@@ -140,14 +142,29 @@
         // Load verifications on page load
         async function loadVerifications() {
             try {
-                const response = await fetch(`${BACKEND_URL}/verification-logs/records?limit=${pageSize}&offset=${currentPage * pageSize}`);
+                const candidates = [
+                    `${API_ROOT_URL}/api/v1/verification-logs/records?limit=${pageSize}&offset=${currentPage * pageSize}`,
+                    `${API_ROOT_URL}/api/v1/verifications?limit=${pageSize}`,
+                    `${API_ROOT_URL}/verifications?limit=${pageSize}`
+                ];
 
-                if (!response.ok) {
-                    throw new Error(`API error: ${response.status}`);
+                let data = null;
+                let ok = false;
+                for (const url of candidates) {
+                    const response = await fetch(url);
+                    if (!response.ok) continue;
+                    data = await response.json();
+                    ok = true;
+                    break;
                 }
-                
-                const data = await response.json();
-                allVerifications = data.data;
+
+                if (!ok) {
+                    throw new Error('API error: no compatible verification endpoint found');
+                }
+
+                allVerifications = Array.isArray(data?.data)
+                    ? data.data
+                    : (Array.isArray(data) ? data : (data?.verifications || []));
                 
                 console.log('Loaded verifications:', allVerifications);
                 renderTable();

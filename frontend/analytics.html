@@ -391,7 +391,9 @@
         const initials = currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
         document.getElementById('profileAvatar').textContent = initials;
 
-        const API_BASE_URL = localStorage.getItem('API_BASE_URL') || 'http://localhost:8000/api/v1';
+        const RAW_API_BASE_URL = localStorage.getItem('API_BASE_URL') || 'http://localhost:8000';
+        const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, '');
+        const API_ROOT_URL = API_BASE_URL.endsWith('/api/v1') ? API_BASE_URL.replace(/\/api\/v1$/, '') : API_BASE_URL;
         const RANGE_TO_MS = {
             '24H': 24 * 60 * 60 * 1000,
             '7D': 7 * 24 * 60 * 60 * 1000,
@@ -704,13 +706,24 @@
                     const controller = new AbortController();
                     const timeout = setTimeout(() => controller.abort(), 8000);
 
-                    const response = await fetch(`${API_BASE_URL}/verification-logs/records?limit=${limit}&offset=${offset}`, {
-                        signal: controller.signal
-                    });
+                    const candidates = [
+                        `${API_ROOT_URL}/api/v1/verification-logs/records?limit=${limit}&offset=${offset}`,
+                        `${API_ROOT_URL}/api/v1/verifications?limit=${limit}`,
+                        `${API_ROOT_URL}/verifications?limit=${limit}`
+                    ];
+
+                    let response = null;
+                    for (const url of candidates) {
+                        const attempted = await fetch(url, { signal: controller.signal });
+                        if (attempted.ok) {
+                            response = attempted;
+                            break;
+                        }
+                    }
                     clearTimeout(timeout);
 
-                    if (!response.ok) {
-                        throw new Error(`API error: ${response.status}`);
+                    if (!response) {
+                        throw new Error('API error: no compatible verification endpoint found');
                     }
 
                     const payload = await response.json();

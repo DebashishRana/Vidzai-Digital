@@ -392,10 +392,26 @@
                     const formData = new FormData();
                     formData.append('file', file);
                     
-                    const response = await fetch(`${API_BASE_URL}/api/v1/detect-document`, {
-                        method: 'POST',
-                        body: formData
-                    });
+                    const detectCandidates = [
+                        `${API_BASE_URL}/api/v1/detect-document`,
+                        `${API_BASE_URL}/detect-document`
+                    ];
+
+                    let response = null;
+                    for (const url of detectCandidates) {
+                        const attempted = await fetch(url, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        if (attempted.status !== 404) {
+                            response = attempted;
+                            break;
+                        }
+                    }
+
+                    if (!response) {
+                        throw new Error('No compatible detect-document endpoint found');
+                    }
                     
                     const result = await response.json();
                     const detections = Array.isArray(result.detections) ? result.detections : [];

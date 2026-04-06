@@ -1,5 +1,23 @@
 // Base API URL
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const RAW_API_BASE_URL = localStorage.getItem('API_BASE_URL') || 'http://localhost:8000';
+const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, '');
+const API_ROOT_URL = API_BASE_URL.endsWith('/api/v1') ? API_BASE_URL.replace(/\/api\/v1$/, '') : API_BASE_URL;
+const API_V1_URL = API_BASE_URL.endsWith('/api/v1') ? API_BASE_URL : `${API_BASE_URL}/api/v1`;
+
+async function fetchFirstSuccessfulJson(paths) {
+    for (const path of paths) {
+        const url = path.startsWith('/api/v1/') ? `${API_ROOT_URL}${path}` : `${API_ROOT_URL}${path}`;
+        try {
+            const res = await fetch(url);
+            if (!res.ok) continue;
+            const data = await res.json();
+            return { ok: true, data, url };
+        } catch (_) {
+            // Try next candidate path.
+        }
+    }
+    return { ok: false, data: null, url: null };
+}
 
 // Global Data Arrays
 let verificationData = [];
@@ -50,13 +68,25 @@ async function saveDataLocally() {
 async function fetchDashboardData() {
     try {
         const [verRes, alertRes, docRes] = await Promise.all([
-            fetch(`${API_BASE_URL}/verification-logs/records`),
-            fetch(`${API_BASE_URL}/dashboard/alerts`),
-            fetch(`${API_BASE_URL}/dashboard/documents`)
+            fetchFirstSuccessfulJson([
+                '/api/v1/verification-logs/records',
+                '/api/v1/verifications',
+                '/verifications'
+            ]),
+            fetchFirstSuccessfulJson([
+                '/api/v1/dashboard/alerts',
+                '/api/v1/alerts',
+                '/alerts'
+            ]),
+            fetchFirstSuccessfulJson([
+                '/api/v1/dashboard/documents',
+                '/api/v1/documents',
+                '/documents'
+            ])
         ]);
 
         if (verRes.ok) {
-            const vPayload = await verRes.json();
+            const vPayload = verRes.data;
             const vData = Array.isArray(vPayload) ? vPayload : (vPayload.data || vPayload.verifications || []);
             verificationData = vData.map(v => {
                 const statusStr = (v.status || 'pending').toLowerCase();
@@ -76,7 +106,7 @@ async function fetchDashboardData() {
         }
 
         if (alertRes.ok) {
-            const aPayload = await alertRes.json();
+            const aPayload = alertRes.data;
             const aData = Array.isArray(aPayload) ? aPayload : (aPayload.alerts || []);
             alertData = aData.map(a => ({
                 id: a.id,
@@ -91,7 +121,7 @@ async function fetchDashboardData() {
         }
 
         if (docRes.ok) {
-            const dPayload = await docRes.json();
+            const dPayload = docRes.data;
             const dData = Array.isArray(dPayload) ? dPayload : (dPayload.documents || []);
             documentData = dData.map(d => ({
                 id: d.id,

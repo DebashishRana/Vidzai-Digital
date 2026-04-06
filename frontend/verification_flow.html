@@ -19,6 +19,33 @@
             justify-content: center;
             padding: 20px;
         }
+
+        /* --- Toggle Switch UI --- */
+        .mode-toggle {
+            display: flex;
+            background: #f3f4f6;
+            padding: 4px;
+            border-radius: 8px;
+            margin: 0 auto 24px auto;
+            width: fit-content;
+        }
+        .mode-btn {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #6b7280;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .mode-btn.active {
+            background: white;
+            color: #0d9488;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
         .logo-header {
             text-align: center;
             margin-bottom: 40px;
@@ -184,14 +211,20 @@
 </head>
 <body>
     <!-- Main Card -->
-    <div class="verification-card">
+    <div class="verification-card" id="mainCard">
         <h1>Start KYC Workflow</h1>
-        <p class="subtitle">Upload your government-issued ID document to proceed with the identity verification process. We ensure your data is secure and encrypted.</p>
+
+        <div class="mode-toggle">
+            <button type="button" class="mode-btn active" id="modeSingleBtn" onclick="setMode('single')">Single Verification</button>
+            <button type="button" class="mode-btn" id="modeBatchBtn" onclick="setMode('batch')">Batch Processing</button>
+        </div>
+
+        <p class="subtitle" id="subtitleText">Upload your government-issued ID document to proceed with the identity verification process. We ensure your data is secure and encrypted.</p>
         
         <div id="statusAlert" class="result-box"></div>
 
         <form id="kycForm">
-            <!-- Input Step -->
+            <!-- Input Step (Single) -->
             <div id="step-inputs" class="form-section active">
                 <div class="file-input-group">
                     <label class="file-input-label">
@@ -219,6 +252,25 @@
 
                 <button type="button" class="verification-btn" id="startBtn">
                     <i class="fas fa-check-circle" style="margin-right: 8px;"></i>Start Verification
+                </button>
+            </div>
+
+            <!-- Input Step (Batch) -->
+            <div id="step-inputs-batch" class="form-section">
+                <div class="file-input-group">
+                    <label class="file-input-label">
+                        Folder containing ID Documents
+                        <span class="file-input-required">*</span>
+                    </label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="batchFolder" webkitdirectory directory multiple required>
+                        <i class="fas fa-folder-open file-input-icon"></i>
+                        <span class="file-input-text" data-placeholder="Choose Folder">Choose Folder</span>
+                    </div>
+                    <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">Images inside subfolders will also be processed.</p>
+                </div>
+                <button type="button" class="verification-btn" id="startBatchBtn" style="background:#4f46e5;">
+                    <i class="fas fa-layer-group" style="margin-right: 8px;"></i>Start Batch Processing
                 </button>
             </div>
 
@@ -307,6 +359,45 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Batch Processing Progress & Results -->
+            <div id="step-results-batch" class="form-section">
+                <!-- Header with completion details -->
+                <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h2 style="font-size: 18px; font-weight: 700; color: #111827; margin: 0;">Batch Verification Progress</h2>
+                        <span id="batchProgressCount" style="background: #e0e7ff; color: #4338ca; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 600;">0/0</span>
+                    </div>
+                    
+                    <div style="width: 100%; background: #e5e7eb; border-radius: 9999px; height: 8px; margin-bottom: 16px; overflow: hidden;">
+                        <div id="batchProgressBar" style="background: #4f46e5; height: 8px; width: 0%; border-radius: 9999px; transition: width 0.3s ease;"></div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 16px;">
+                        <div style="flex: 1; text-align: center; background: #f9fafb; padding: 10px; border-radius: 8px;">
+                            <p style="font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; margin: 0 0 4px 0;">Total Accepted</p>
+                            <p id="batchAcceptedCount" style="font-size: 20px; font-weight: 700; color: #10b981; margin: 0;">0</p>
+                        </div>
+                        <div style="flex: 1; text-align: center; background: #f9fafb; padding: 10px; border-radius: 8px;">
+                            <p style="font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; margin: 0 0 4px 0;">Total Rejected</p>
+                            <p id="batchRejectedCount" style="font-size: 20px; font-weight: 700; color: #ef4444; margin: 0;">0</p>
+                        </div>
+                        <div style="flex: 1; text-align: center; background: #f9fafb; padding: 10px; border-radius: 8px;">
+                            <p style="font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; margin: 0 0 4px 0;">Time Elapsed</p>
+                            <p id="batchTimeElapsed" style="font-size: 20px; font-weight: 700; color: #374151; margin: 0;">00:00</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grid for Document Cards -->
+                <div id="batchResultsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; max-height: 500px; overflow-y: auto; padding: 4px;">
+                    <!-- Cards injected via JS -->
+                </div>
+                
+                <button type="button" class="verification-btn" id="finishBatchBtn" style="margin-top: 24px; display: none;" onclick="location.reload();">
+                    <i class="fas fa-redo" style="margin-right: 8px;"></i>Start New Batch
+                </button>
+            </div>
         </form>
     </div>
 
@@ -324,7 +415,63 @@
     </script>
 
 <script>
-const BACKEND_URL = 'http://localhost:8000/api/v1';
+const RAW_API_BASE = localStorage.getItem('API_BASE_URL') || 'http://localhost:8000';
+
+function normalizeBaseUrl(url) {
+    return (url || '').trim().replace(/\/+$/, '');
+}
+
+const BASE_URL = normalizeBaseUrl(RAW_API_BASE);
+const API_V1_BASE = BASE_URL.endsWith('/api/v1') ? BASE_URL : `${BASE_URL}/api/v1`;
+const LEGACY_BASE = BASE_URL.endsWith('/api/v1') ? BASE_URL.replace(/\/api\/v1$/, '') : BASE_URL;
+
+async function postFormWithFallback(v1Path, legacyPath, formData) {
+    const v1Url = `${API_V1_BASE}${v1Path}`;
+    try {
+        const v1Res = await fetch(v1Url, {
+            method: 'POST',
+            body: formData
+        });
+
+        // Keep api/v1 response for success and client-side validation errors.
+        if (v1Res.ok || (v1Res.status !== 404 && v1Res.status < 500)) {
+            return { response: v1Res, url: v1Url, mode: 'api_v1' };
+        }
+    } catch (_) {
+        // Network/CORS failures should attempt legacy endpoint as fallback.
+    }
+
+    const legacyUrl = `${LEGACY_BASE}${legacyPath}`;
+    const legacyRes = await fetch(legacyUrl, {
+        method: 'POST',
+        body: formData
+    });
+    return { response: legacyRes, url: legacyUrl, mode: 'legacy' };
+}
+
+let currentMode = 'single';
+
+function setMode(mode) {
+    currentMode = mode;
+    
+    document.getElementById('modeSingleBtn').classList.toggle('active', mode === 'single');
+    document.getElementById('modeBatchBtn').classList.toggle('active', mode === 'batch');
+    
+    if (mode === 'single') {
+        document.getElementById('step-inputs').style.display = 'block';
+        document.getElementById('step-inputs-batch').style.display = 'none';
+        document.getElementById('subtitleText').innerText = 'Upload your government-issued ID document to proceed with the identity verification process. We ensure your data is secure and encrypted.';
+    } else {
+        document.getElementById('step-inputs').style.display = 'none';
+        document.getElementById('step-inputs-batch').style.display = 'block';
+        document.getElementById('subtitleText').innerText = 'Select a folder containing multiple ID documents. We will verify them sequentially in batch mode.';
+    }
+    
+    document.getElementById('statusAlert').style.display = 'none';
+}
+
+// Initial state
+setMode('single');
 
 document.getElementById('startBtn').addEventListener('click', async () => {
     const idFile = document.getElementById('idDocument').files[0];
@@ -355,10 +502,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         let formDataDocs = new FormData();
         formDataDocs.append("file", idFile);
 
-        const docRes = await fetch(`${BACKEND_URL}/verify-full`, {
-            method: "POST",
-            body: formDataDocs
-        });
+        const docCall = await postFormWithFallback('/verify-full', '/verify-full', formDataDocs);
+        const docRes = docCall.response;
+        console.log('verify-full URL used:', docCall.url, 'mode:', docCall.mode);
         
         console.log('API Response status:', docRes.status);
         
@@ -437,10 +583,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
             formDataFace.append("id_photo", idFile);
             formDataFace.append("selfie", selfieFile);
 
-            const faceRes = await fetch(`${BACKEND_URL}/verify-face`, {
-                method: "POST",
-                body: formDataFace
-            });
+            const faceCall = await postFormWithFallback('/verify-face', '/verify-face', formDataFace);
+            const faceRes = faceCall.response;
+            console.log('verify-face URL used:', faceCall.url, 'mode:', faceCall.mode);
             const faceData = await faceRes.json();
 
             if (faceRes.ok && faceData.match) {
@@ -461,10 +606,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         formDataAddress.append("file", idFile);
         let addrScore = 0;
 
-        const addrRes = await fetch(`${BACKEND_URL}/detect-address`, {
-            method: "POST",
-            body: formDataAddress
-        });
+        const addrCall = await postFormWithFallback('/detect-address', '/detect/address', formDataAddress);
+        const addrRes = addrCall.response;
+        console.log('detect-address URL used:', addrCall.url, 'mode:', addrCall.mode);
 
         if (addrRes.ok) {
             const addrData = await addrRes.json();
@@ -622,11 +766,28 @@ async function saveVerificationRecord(verifyId, docType, score, status, address,
             verification_details: verificationDetails
         };
 
-        const response = await fetch(`${BACKEND_URL}/save-verification`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        const saveCandidates = [
+            `${API_V1_BASE}/save-verification`,
+            `${LEGACY_BASE}/save-verification`
+        ];
+
+        let response = null;
+        for (const url of saveCandidates) {
+            const attempted = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (attempted.status !== 404) {
+                response = attempted;
+                break;
+            }
+        }
+
+        if (!response) {
+            console.error('Failed to save verification record: no compatible endpoint found');
+            return;
+        }
 
         if (response.ok) {
             const data = await response.json();
@@ -639,6 +800,134 @@ async function saveVerificationRecord(verifyId, docType, score, status, address,
         console.error('Error saving verification record:', error);
     }
 }
+
+// BATCH PROCESSING JS
+document.getElementById('startBatchBtn').addEventListener('click', async () => {
+    const fileInput = document.getElementById('batchFolder');
+    const allFiles = Array.from(fileInput.files);
+    
+    // Filter only images
+    const imageFiles = allFiles.filter(f => f.type === 'image/jpeg' || f.type === 'image/png');
+    
+    if (imageFiles.length === 0) {
+        alert("No valid images (JPEG/PNG) found in the selected folder.");
+        return;
+    }
+    
+    // Hide UI, Show Batch Progress
+    document.getElementById('step-inputs-batch').style.display = 'none';
+    document.getElementById('step-processing').style.display = 'block';
+    document.getElementById('processText').innerText = "Initializing batch upload...";
+    
+    let accepted = 0;
+    let rejected = 0;
+    let startTime = Date.now();
+    
+    // Show grid and progress area (temporarily hide processing spinner)
+    document.getElementById('step-processing').style.display = 'none';
+    document.getElementById('step-results-batch').style.display = 'block';
+    document.getElementById('batchResultsGrid').innerHTML = '';
+    
+    const timeInterval = setInterval(() => {
+        const diff = Date.now() - startTime;
+        const mins = Math.floor(diff / 60000).toString().padStart(2, '0');
+        const secs = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+        document.getElementById('batchTimeElapsed').innerText = `${mins}:${secs}`;
+    }, 1000);
+    
+    for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
+        
+        // Update Progress UI
+        const percent = Math.round(((i) / imageFiles.length) * 100);
+        document.getElementById('batchProgressCount').innerText = `${i + 1}/${imageFiles.length}`;
+        document.getElementById('batchProgressBar').style.width = `${percent}%`;
+        
+        try {
+            // Process file through full endpoint
+            let formData = new FormData();
+            formData.append("file", file);
+            
+            // Just verify document for quick batch classification (using the core detection endpoint is faster)
+            // But we use /verify-full for risk scoring and address extraction consistency
+            let { response } = await postFormWithFallback('/verify-full', '/verify-document', formData);
+            if (!response || !response.ok) throw new Error("Endpoint failed");
+            
+            let data = await response.json();
+            
+            // Assume 0.40 since we lowered it earlier.
+            let confidence = 0;
+            let docType = "Unknown";
+            let ocrAddress = "Not Output";
+            let status = "rejected";
+            let risk_score = 100;
+            
+            // Handle different JSON shapes
+            if (data.results && data.results.length > 0) {
+                confidence = data.results[0].confidence || 0;
+                docType = data.results[0].document_type || "Unknown";
+            } else if (data.document_info) {
+                confidence = data.document_info.confidence || 0;
+                docType = data.document_info.type || "Unknown";
+                ocrAddress = data.document_info.extracted_text || "Address not parsed in JSON form";
+            }
+            if (data.address_info) {
+                ocrAddress = data.address_info.address || 'Not detected';
+            }
+            
+            if (data.status === "verified" || confidence >= 0.40) {
+                accepted++;
+                status = "accepted";
+            } else {
+                rejected++;
+            }
+            
+            document.getElementById('batchAcceptedCount').innerText = accepted;
+            document.getElementById('batchRejectedCount').innerText = rejected;
+            
+            // Generate card in grid
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imgSrc = e.target.result;
+                const card = document.createElement('div');
+                card.style.cssText = `background: white; border-radius: 10px; border: 1px solid #e5e7eb; overflow: hidden; display: flex; flex-direction: column;`;
+                
+                const headerColor = status === 'accepted' ? '#ecfdf5' : '#fef2f2';
+                const badgeColor = status === 'accepted' ? '#10b981' : '#ef4444';
+                const badgeText = status === 'accepted' ? '✅ Verified - ' + (confidence * 100).toFixed(0) + '%' : '❌ Rejected';
+                
+                card.innerHTML = `
+                    <div style="height: 140px; background: #f3f4f6; position: relative;">
+                        <img src="${imgSrc}" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div style="position: absolute; top: 8px; right: 8px; background: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.1); color: ${badgeColor};">
+                            ${badgeText}
+                        </div>
+                    </div>
+                    <div style="padding: 12px; background: ${headerColor}; flex: 1;">
+                        <p style="font-size: 11px; color: #6b7280; font-weight: 600; margin: 0 0 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.name}">${file.name}</p>
+                        <p style="font-size: 13px; font-weight: 700; color: #111827; margin: 0 0 8px 0;">${docType}</p>
+                        <div style="background: white; padding: 8px; border-radius: 6px; font-size: 11px; color: #4b5563; min-height: 40px; word-break: break-word;">
+                            ${ocrAddress}
+                        </div>
+                    </div>
+                `;
+                // Insert at top so newest is visible
+                document.getElementById('batchResultsGrid').insertAdjacentElement('afterbegin', card);
+            };
+            reader.readAsDataURL(file);
+            
+        } catch(e) {
+            rejected++;
+            document.getElementById('batchRejectedCount').innerText = rejected;
+            console.error("Batch failure for file:", file.name, e);
+        }
+    }
+    
+    clearInterval(timeInterval);
+    document.getElementById('batchProgressCount').innerText = "Complete";
+    document.getElementById('batchProgressBar').style.width = `100%`;
+    document.getElementById('finishBatchBtn').style.display = 'block';
+});
 </script>
 </body>
 </html>
