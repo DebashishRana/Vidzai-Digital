@@ -1,0 +1,933 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KYC Verification - Citadel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { 
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        /* --- Toggle Switch UI --- */
+        .mode-toggle {
+            display: flex;
+            background: #f3f4f6;
+            padding: 4px;
+            border-radius: 8px;
+            margin: 0 auto 24px auto;
+            width: fit-content;
+        }
+        .mode-btn {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #6b7280;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .mode-btn.active {
+            background: white;
+            color: #0d9488;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .logo-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .logo-icon {
+            font-size: 2rem;
+            color: #0d9488;
+            margin-bottom: 10px;
+        }
+        .logo-text {
+            font-size: 20px;
+            font-weight: 700;
+            color: #111827;
+            letter-spacing: -0.5px;
+        }
+        .verification-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+            padding: 50px 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        .verification-card h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .verification-card .subtitle {
+            font-size: 15px;
+            color: #6b7280;
+            text-align: center;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .form-section {
+            display: none;
+        }
+        .form-section.active {
+            display: block;
+        }
+        .file-input-group {
+            margin-bottom: 24px;
+        }
+        .file-input-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+        .file-input-required {
+            color: #ef4444;
+        }
+        .file-input-optional {
+            color: #9ca3af;
+            font-weight: 400;
+        }
+        .file-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .file-input-wrapper:hover {
+            border-color: #0d9488;
+            background: #f0fdf4;
+        }
+        .file-input-wrapper input[type="file"] {
+            display: none;
+        }
+        .file-input-btn {
+            background: #f3f4f6;
+            color: #374151;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .file-input-text {
+            flex: 1;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .file-input-icon {
+            color: #9ca3af;
+            font-size: 18px;
+        }
+        .verification-btn {
+            width: 100%;
+            background: #0d9488;
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 12px;
+        }
+        .verification-btn:hover {
+            background: #0f766e;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
+        }
+        .verification-btn:active {
+            transform: translateY(0);
+        }
+        .processing-step {
+            text-align: center;
+        }
+        .spinner-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #0d9488;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .processing-text {
+            font-size: 15px;
+            color: #6b7280;
+            font-weight: 500;
+        }
+        .result-box {
+            display: none;
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        .alert-fail {
+            background-color: #fee2e2;
+            color: #7f1d1d;
+            border: 1px solid #fecaca;
+        }
+        .alert-pass {
+            background-color: #dcfce7;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Main Card -->
+    <div class="verification-card" id="mainCard">
+        <h1>Start KYC Workflow</h1>
+
+        <div class="mode-toggle">
+            <button type="button" class="mode-btn active" id="modeSingleBtn" onclick="setMode('single')">Single Verification</button>
+            <button type="button" class="mode-btn" id="modeBatchBtn" onclick="setMode('batch')">Batch Processing</button>
+        </div>
+
+        <p class="subtitle" id="subtitleText">Upload your government-issued ID document to proceed with the identity verification process. We ensure your data is secure and encrypted.</p>
+        
+        <div id="statusAlert" class="result-box"></div>
+
+        <form id="kycForm">
+            <!-- Input Step (Single) -->
+            <div id="step-inputs" class="form-section active">
+                <div class="file-input-group">
+                    <label class="file-input-label">
+                        ID Document (Aadhar)
+                        <span class="file-input-required">*</span>
+                    </label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="idDocument" accept="image/jpeg, image/png" required>
+                        <i class="fas fa-upload file-input-icon"></i>
+                        <span class="file-input-text" data-placeholder="Choose File">Choose File</span>
+                    </div>
+                </div>
+
+                <div class="file-input-group">
+                    <label class="file-input-label">
+                        Selfie Photo
+                        <span class="file-input-optional">(Optional)</span>
+                    </label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="selfiePhoto" accept="image/jpeg, image/png">
+                        <i class="fas fa-camera file-input-icon"></i>
+                        <span class="file-input-text" data-placeholder="Choose File">Choose File</span>
+                    </div>
+                </div>
+
+                <button type="button" class="verification-btn" id="startBtn">
+                    <i class="fas fa-check-circle" style="margin-right: 8px;"></i>Start Verification
+                </button>
+            </div>
+
+            <!-- Input Step (Batch) -->
+            <div id="step-inputs-batch" class="form-section">
+                <div class="file-input-group">
+                    <label class="file-input-label">
+                        Folder containing ID Documents
+                        <span class="file-input-required">*</span>
+                    </label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="batchFolder" webkitdirectory directory multiple required>
+                        <i class="fas fa-folder-open file-input-icon"></i>
+                        <span class="file-input-text" data-placeholder="Choose Folder">Choose Folder</span>
+                    </div>
+                    <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">Images inside subfolders will also be processed.</p>
+                </div>
+                <button type="button" class="verification-btn" id="startBatchBtn" style="background:#4f46e5;">
+                    <i class="fas fa-layer-group" style="margin-right: 8px;"></i>Start Batch Processing
+                </button>
+            </div>
+
+            <!-- Processing Step -->
+            <div id="step-processing" class="form-section processing-step">
+                <div class="spinner-wrapper">
+                    <div class="spinner"></div>
+                </div>
+                <p class="processing-text" id="processText">Processing Document...</p>
+            </div>
+
+            <!-- Verification Results Step - Full Screen Horizontal Layout -->
+            <div id="step-results" class="form-section" style="padding: 0; position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: none; width: 100%; height: 100vh; background: white;">
+                <div style="display: grid; grid-template-columns: 300px 1fr 320px; height: 100%; gap: 0;">
+                    
+                    <!-- LEFT PANEL: Document Info -->
+                    <div style="background: #f9fafb; border-right: 1px solid #e5e7eb; padding: 40px 24px; overflow-y: auto; display: flex; flex-direction: column;">
+                        <div style="margin-bottom: 32px;">
+                            <h2 style="font-size: 18px; font-weight: 700; color: #111827; margin: 0 0 24px 0;">Document Info</h2>
+                            
+                            <div style="margin-bottom: 24px;">
+                                <p style="font-size: 11px; color: #9ca3af; margin: 0 0 6px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Document Type</p>
+                                <p id="extractedDocType" style="font-size: 16px; font-weight: 700; color: #111827; margin: 0;">Not detected</p>
+                            </div>
+
+                            <div style="margin-bottom: 24px;">
+                                <p style="font-size: 11px; color: #9ca3af; margin: 0 0 6px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Detected Address</p>
+                                <p id="extractedAddress" style="font-size: 13px; color: #374151; margin: 0; line-height: 1.6; max-height: 100px; overflow-y: auto;">Not detected</p>
+                            </div>
+
+                            <div style="margin-bottom: 24px;">
+                                <p style="font-size: 11px; color: #9ca3af; margin: 0 0 6px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Status</p>
+                                <div id="verificationStatus" style="display: inline-block; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; background: #fee2e2; color: #dc2626;">Review Required</div>
+                            </div>
+                        </div>
+
+                        <button onclick="document.getElementById('step-results').style.display='none'; document.getElementById('step-inputs').classList.add('active'); document.getElementById('idDocument').value = ''; document.getElementById('selfiePhoto').value = ''; document.getElementById('kycForm').reset();" style="width: 100%; background: #0d9488; color: white; border: none; padding: 14px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; transition: all 0.3s; margin-top: auto;">
+                            ΓåÉ Start New Case
+                        </button>
+                    </div>
+
+                    <!-- CENTER PANEL: Large Document Image -->
+                    <div style="display: flex; align-items: center; justify-content: center; background: #ffffff; padding: 40px;">
+                        <div id="uploadedDocImage" style="width: 100%; height: 100%; background: #f3f4f6; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.12);">
+                            <i class="fas fa-file-image" style="font-size: 80px; color: #d1d5db;"></i>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT PANEL: Confidence Score & Verification Steps -->
+                    <div style="background: linear-gradient(135deg, #f8fdfb 0%, #f0fdf4 100%); border-left: 1px solid #e5e7eb; padding: 40px 24px; overflow-y: auto; display: flex; flex-direction: column;">
+                        
+                        <!-- Confidence Score Box -->
+                        <div style="background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); border-radius: 12px; padding: 28px 20px; text-align: center; border: 2px solid #10b981; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.2); margin-bottom: 32px;">
+                            <p style="font-size: 12px; font-weight: 600; color: #065f46; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.5px;">Confidence Score</p>
+                            <p id="confidenceScoreDisplay" style="font-size: 64px; font-weight: 800; color: #059669; margin: 4px 0;">--</p>
+                            <p style="font-size: 12px; color: #047857; margin: 8px 0 0 0; font-weight: 500;">Overall Match</p>
+                        </div>
+
+                        <!-- Verification Steps Checklist -->
+                        <div>
+                            <h3 style="font-size: 14px; font-weight: 700; color: #111827; margin: 0 0 16px 0; text-transform: uppercase; letter-spacing: 0.5px;">Verification Steps</h3>
+                            <div id="verificationSteps" style="display: flex; flex-direction: column; gap: 12px;">
+                                <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: white; border-radius: 8px; border-left: 3px solid #e5e7eb;">
+                                    <i class="fas fa-circle-notch" style="color: #9ca3af; margin-top: 4px; font-size: 14px;"></i>
+                                    <div>
+                                        <p style="font-size: 13px; font-weight: 500; color: #111827; margin: 0;">Document Verification</p>
+                                        <p style="font-size: 12px; color: #9ca3af; margin: 2px 0 0 0;">Checking authenticity</p>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: white; border-radius: 8px; border-left: 3px solid #e5e7eb;">
+                                    <i class="fas fa-circle-notch" style="color: #9ca3af; margin-top: 4px; font-size: 14px;"></i>
+                                    <div>
+                                        <p style="font-size: 13px; font-weight: 500; color: #111827; margin: 0;">Address Detection</p>
+                                        <p style="font-size: 12px; color: #9ca3af; margin: 2px 0 0 0;">Extracting address</p>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: white; border-radius: 8px; border-left: 3px solid #e5e7eb;">
+                                    <i class="fas fa-circle-notch" style="color: #9ca3af; margin-top: 4px; font-size: 14px;"></i>
+                                    <div>
+                                        <p style="font-size: 13px; font-weight: 500; color: #111827; margin: 0;">Tampering Check</p>
+                                        <p style="font-size: 12px; color: #9ca3af; margin: 2px 0 0 0;">Document integrity</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Batch Processing Progress & Results -->
+            <div id="step-results-batch" class="form-section">
+                <!-- Header with completion details -->
+                <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h2 style="font-size: 18px; font-weight: 700; color: #111827; margin: 0;">Batch Verification Progress</h2>
+                        <span id="batchProgressCount" style="background: #e0e7ff; color: #4338ca; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 600;">0/0</span>
+                    </div>
+                    
+                    <div style="width: 100%; background: #e5e7eb; border-radius: 9999px; height: 8px; margin-bottom: 16px; overflow: hidden;">
+                        <div id="batchProgressBar" style="background: #4f46e5; height: 8px; width: 0%; border-radius: 9999px; transition: width 0.3s ease;"></div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 16px;">
+                        <div style="flex: 1; text-align: center; background: #f9fafb; padding: 10px; border-radius: 8px;">
+                            <p style="font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; margin: 0 0 4px 0;">Total Accepted</p>
+                            <p id="batchAcceptedCount" style="font-size: 20px; font-weight: 700; color: #10b981; margin: 0;">0</p>
+                        </div>
+                        <div style="flex: 1; text-align: center; background: #f9fafb; padding: 10px; border-radius: 8px;">
+                            <p style="font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; margin: 0 0 4px 0;">Total Rejected</p>
+                            <p id="batchRejectedCount" style="font-size: 20px; font-weight: 700; color: #ef4444; margin: 0;">0</p>
+                        </div>
+                        <div style="flex: 1; text-align: center; background: #f9fafb; padding: 10px; border-radius: 8px;">
+                            <p style="font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; margin: 0 0 4px 0;">Time Elapsed</p>
+                            <p id="batchTimeElapsed" style="font-size: 20px; font-weight: 700; color: #374151; margin: 0;">00:00</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grid for Document Cards -->
+                <div id="batchResultsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; max-height: 500px; overflow-y: auto; padding: 4px;">
+                    <!-- Cards injected via JS -->
+                </div>
+                
+                <button type="button" class="verification-btn" id="finishBatchBtn" style="margin-top: 24px; display: none;" onclick="location.reload();">
+                    <i class="fas fa-redo" style="margin-right: 8px;"></i>Start New Batch
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // File input handler
+        document.querySelectorAll('input[type="file"]').forEach(input => {
+            const wrapper = input.parentElement;
+            const textSpan = wrapper.querySelector('.file-input-text');
+            
+            wrapper.addEventListener('click', () => input.click());
+            input.addEventListener('change', () => {
+                textSpan.textContent = input.files[0]?.name || 'Choose File';
+            });
+        });
+    </script>
+
+<script>
+const RAW_API_BASE = localStorage.getItem('API_BASE_URL') || 'http://localhost:8000';
+
+function normalizeBaseUrl(url) {
+    return (url || '').trim().replace(/\/+$/, '');
+}
+
+const BASE_URL = normalizeBaseUrl(RAW_API_BASE);
+const API_V1_BASE = BASE_URL.endsWith('/api/v1') ? BASE_URL : `${BASE_URL}/api/v1`;
+const LEGACY_BASE = BASE_URL.endsWith('/api/v1') ? BASE_URL.replace(/\/api\/v1$/, '') : BASE_URL;
+
+async function postFormWithFallback(v1Path, legacyPath, formData) {
+    const v1Url = `${API_V1_BASE}${v1Path}`;
+    try {
+        const v1Res = await fetch(v1Url, {
+            method: 'POST',
+            body: formData
+        });
+
+        // Keep api/v1 response for success and client-side validation errors.
+        if (v1Res.ok || (v1Res.status !== 404 && v1Res.status < 500)) {
+            return { response: v1Res, url: v1Url, mode: 'api_v1' };
+        }
+    } catch (_) {
+        // Network/CORS failures should attempt legacy endpoint as fallback.
+    }
+
+    const legacyUrl = `${LEGACY_BASE}${legacyPath}`;
+    const legacyRes = await fetch(legacyUrl, {
+        method: 'POST',
+        body: formData
+    });
+    return { response: legacyRes, url: legacyUrl, mode: 'legacy' };
+}
+
+let currentMode = 'single';
+
+function setMode(mode) {
+    currentMode = mode;
+    
+    document.getElementById('modeSingleBtn').classList.toggle('active', mode === 'single');
+    document.getElementById('modeBatchBtn').classList.toggle('active', mode === 'batch');
+    
+    if (mode === 'single') {
+        document.getElementById('step-inputs').style.display = 'block';
+        document.getElementById('step-inputs-batch').style.display = 'none';
+        document.getElementById('subtitleText').innerText = 'Upload your government-issued ID document to proceed with the identity verification process. We ensure your data is secure and encrypted.';
+    } else {
+        document.getElementById('step-inputs').style.display = 'none';
+        document.getElementById('step-inputs-batch').style.display = 'block';
+        document.getElementById('subtitleText').innerText = 'Select a folder containing multiple ID documents. We will verify them sequentially in batch mode.';
+    }
+    
+    document.getElementById('statusAlert').style.display = 'none';
+}
+
+// Initial state
+setMode('single');
+
+document.getElementById('startBtn').addEventListener('click', async () => {
+    const idFile = document.getElementById('idDocument').files[0];
+    const selfieFile = document.getElementById('selfiePhoto').files[0];
+    const statusAlert = document.getElementById('statusAlert');
+    const processText = document.getElementById('processText');
+
+    if (!idFile) {
+        alert("Please upload ID Document (Aadhar). Selfie is optional.");
+        return;
+    }
+
+    // UI Reset
+    document.getElementById('step-inputs').classList.remove('active');
+    document.getElementById('step-processing').classList.add('active');
+    statusAlert.style.display = 'none';
+
+    let verificationScores = [];
+    let stepsCompleted = [];
+    let createdVerifyId = null;
+    let detectedDocType = 'Aadhar';
+    let detectedAddress = 'Not detected';
+    let uploadedImageData = null;
+
+    try {
+        // Step 1: Document Verification (ALWAYS)
+        processText.innerText = "Step 1: Verifying Document...";
+        let formDataDocs = new FormData();
+        formDataDocs.append("file", idFile);
+
+        const docCall = await postFormWithFallback('/verify-full', '/verify-full', formDataDocs);
+        const docRes = docCall.response;
+        console.log('verify-full URL used:', docCall.url, 'mode:', docCall.mode);
+        
+        console.log('API Response status:', docRes.status);
+        
+        if (!docRes.ok) {
+            const errorText = await docRes.text();
+            console.error('Backend error response:', errorText);
+            throw new Error(`Backend error: ${docRes.status} ${docRes.statusText}`);
+        }
+        
+        const docData = await docRes.json();
+        console.log('API Response data:', docData);
+        
+        createdVerifyId = docData.verification_id;
+        detectedDocType = docData.document_type || 'Aadhar';
+
+        // Save image locally for display in the case review dashboard
+        try {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                // Pre-size it using a canvas to keep localStorage safe
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    const MAX_WIDTH = 800;
+                    const MAX_HEIGHT = 800;
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    if (width > height) {
+                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                    } else {
+                        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                    }
+                    
+                    canvas.width = width; canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    sessionStorage.setItem('recent_upload_' + createdVerifyId, dataUrl);
+                    uploadedImageData = dataUrl;
+                    console.log('Image saved to session storage');
+                }
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(idFile);
+        } catch(e) { console.error("Error saving image to session storage", e); }
+
+        // Confidence Scoring System:
+        // - Document (Aadhar): 0.40
+        // - Address Detection: 0.20
+        // - Face Match: 0.10
+        // - Face Mismatch: -0.40
+        // - No Tampering: 0.20
+        // Pass Threshold: 0.50
+        
+        let totalConfidence = 0;
+        
+        // Step 1: Document Score (0.40 for Aadhar)
+        const isAadhar = (detectedDocType.toLowerCase().includes('aadhar') || detectedDocType.toLowerCase().includes('aadhaar'));
+        let docScore = 0;
+        if (isAadhar && docData.is_verified) {
+            docScore = 0.40;
+            stepsCompleted.push(`Document: Γ£à Verified Aadhar (+0.40)`);
+        } else {
+            stepsCompleted.push(`Document: ΓÜá∩╕Å Flagged or Invalid`);
+        }
+        totalConfidence += docScore;
+        console.log('Document Score:', docScore, 'Type:', detectedDocType);
+
+        // Step 2: Face Verification (0.10 match / -0.40 mismatch)
+        let faceScore = 0;
+        if (selfieFile) {
+            processText.innerText = "Step 2: Verifying Face...";
+            let formDataFace = new FormData();
+            formDataFace.append("id_photo", idFile);
+            formDataFace.append("selfie", selfieFile);
+
+            const faceCall = await postFormWithFallback('/verify-face', '/verify-face', formDataFace);
+            const faceRes = faceCall.response;
+            console.log('verify-face URL used:', faceCall.url, 'mode:', faceCall.mode);
+            const faceData = await faceRes.json();
+
+            if (faceRes.ok && faceData.match) {
+                faceScore = 0.10;
+                stepsCompleted.push(`Face Match: Γ£à Match (+0.10)`);
+            } else {
+                faceScore = -0.40;
+                stepsCompleted.push(`Face Match: Γ¥î Mismatch (-0.40)`);
+            }
+        } else {
+            stepsCompleted.push("Face Match: ΓÅ¡∩╕Å Skipped (no selfie)");
+        }
+        totalConfidence += faceScore;
+
+        // Step 3: Address Detection (0.20 weight)
+        processText.innerText = "Step 3: Detecting Address...";
+        let formDataAddress = new FormData();
+        formDataAddress.append("file", idFile);
+        let addrScore = 0;
+
+        const addrCall = await postFormWithFallback('/detect-address', '/detect/address', formDataAddress);
+        const addrRes = addrCall.response;
+        console.log('detect-address URL used:', addrCall.url, 'mode:', addrCall.mode);
+
+        if (addrRes.ok) {
+            const addrData = await addrRes.json();
+            if (addrData.status === 'success' && addrData.address) {
+                addrScore = 0.20;
+                detectedAddress = addrData.address;
+                sessionStorage.setItem('recent_address_' + createdVerifyId, addrData.address);
+                stepsCompleted.push(`Address: Γ£à Detected (+0.20)`);
+            } else {
+                stepsCompleted.push(`Address: ΓÜá∩╕Å Not found (0.00)`);
+            }
+        } else {
+            stepsCompleted.push("Address: ΓÜá∩╕Å Could not detect (0.00)");
+        }
+        totalConfidence += addrScore;
+
+        // Step 4: No Tampering Check (0.20 weight)
+        // Assume no tampering if document verified and risk score is acceptable
+        let tamperingScore = 0;
+        if (docData.is_verified && docData.risk_score < 50) {
+            tamperingScore = 0.20;
+            stepsCompleted.push(`Document Integrity: Γ£à No Tampering Detected (+0.20)`);
+        } else {
+            stepsCompleted.push(`Document Integrity: ΓÜá∩╕Å May Have Tampering (0.00)`);
+        }
+        totalConfidence += tamperingScore;
+
+        // Final Confidence Score
+        const avgConfidence = totalConfidence;
+
+        const resultDetails = stepsCompleted.join('\n');
+
+        if (avgConfidence >= 0.5) {
+            // Show results panel
+            showResult(`Γ£à KYC COMPLETED!`, true, idFile, detectedDocType, detectedAddress, avgConfidence, stepsCompleted);
+            saveVerificationRecord(createdVerifyId, detectedDocType, avgConfidence, 'Verified', detectedAddress, stepsCompleted);
+        } else {
+            showResult(`Γ¥î KYC FAILED!\nConfidence: ${(avgConfidence * 100).toFixed(1)}%\n\n${resultDetails}`, false, idFile, detectedDocType, detectedAddress, avgConfidence, stepsCompleted);
+            saveVerificationRecord(createdVerifyId, detectedDocType, avgConfidence, avgConfidence >= 0.2 ? 'Review Required' : 'Failed', detectedAddress, stepsCompleted);
+        }
+
+    } catch (error) {
+        console.error('Verification error:', error);
+        showResult(`Γ¥î Verification Error: ${error.message}`, false, idFile, 'Unknown', 'Not detected', 0, [`Error: ${error.message}`]);
+    }
+});
+
+function showResult(message, isSuccess, uploadedImageFile = null, documentType = 'Unknown', detectedAddress = 'Not detected', confidenceScore = 0, stepsCompleted = []) {
+    document.getElementById('step-processing').classList.remove('active');
+    
+    // Show full-screen results panel
+    document.getElementById('step-inputs').classList.remove('active');
+    document.getElementById('step-results').style.display = 'flex';
+    
+    // Display confidence score in large text
+    const confidencePercent = Math.max(0, confidenceScore * 100).toFixed(0);
+    document.getElementById('confidenceScoreDisplay').innerText = confidencePercent + '%';
+    
+    // Populate image
+    if (uploadedImageFile) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('uploadedDocImage').innerHTML = `<img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;">`;
+        };
+        reader.readAsDataURL(uploadedImageFile);
+    }
+    
+    // Populate document type
+    document.getElementById('extractedDocType').innerText = documentType || 'Unknown';
+    
+    // Populate address
+    document.getElementById('extractedAddress').innerText = detectedAddress || 'Not detected';
+    
+    // Update status badge
+    const statusEl = document.getElementById('verificationStatus');
+    if (isSuccess) {
+        statusEl.style.background = '#dcfce7';
+        statusEl.style.color = '#15803d';
+        statusEl.innerText = 'Γ£à Verified';
+    } else {
+        statusEl.style.background = '#fee2e2';
+        statusEl.style.color = '#dc2626';
+        statusEl.innerText = 'ΓÜá∩╕Å Review Required';
+    }
+
+    // Update verification steps
+    const stepsContainer = document.getElementById('verificationSteps');
+    stepsContainer.innerHTML = '';
+    
+    const stepIcons = {
+        'Document': 'fa-id-card',
+        'Address': 'fa-map-location-dot',
+        'Face': 'fa-face-smile',
+        'Tampering': 'fa-shield-halved'
+    };
+
+    stepsCompleted.forEach((step, idx) => {
+        const stepDiv = document.createElement('div');
+        const isCompleted = step.includes('Γ£à');
+        const isFailed = step.includes('Γ¥î');
+        const isSkipped = step.includes('ΓÅ¡∩╕Å');
+        
+        let iconClass = 'fa-circle';
+        let borderColor = '#e5e7eb';
+        let bgColor = 'white';
+        
+        if (isCompleted) {
+            iconClass = 'fa-check-circle';
+            borderColor = '#10b981';
+            bgColor = '#f0fdf4';
+        } else if (isFailed) {
+            iconClass = 'fa-circle-xmark';
+            borderColor = '#ef4444';
+            bgColor = '#fef2f2';
+        } else if (isSkipped) {
+            iconClass = 'fa-forward';
+            borderColor = '#f3f4f6';
+            bgColor = '#f9fafb';
+        }
+        
+        const stepText = step.replace(/[Γ£àΓ¥îΓÅ¡∩╕Å]/g, '').trim();
+        stepDiv.style.cssText = `display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: ${bgColor}; border-radius: 8px; border-left: 4px solid ${borderColor};`;
+        
+        const iconColor = isCompleted ? '#10b981' : isFailed ? '#ef4444' : '#9ca3af';
+        stepDiv.innerHTML = `
+            <i class="fas ${iconClass}" style="color: ${iconColor}; margin-top: 4px; font-size: 14px; flex-shrink: 0;"></i>
+            <div>
+                <p style="font-size: 13px; font-weight: 500; color: #111827; margin: 0;">${stepText.split(':')[0]}</p>
+                <p style="font-size: 12px; color: #9ca3af; margin: 2px 0 0 0;">${stepText.split(':')[1] || 'Processing'}</p>
+            </div>
+        `;
+        stepsContainer.appendChild(stepDiv);
+    });
+}
+
+// Function to save verification record to backend
+async function saveVerificationRecord(verifyId, docType, score, status, address, steps) {
+    try {
+        const verificationDetails = {
+            steps: steps,
+            scores: {
+                document: score >= 0.40 ? 0.40 : 0,
+                address: score >= 0.60 ? 0.20 : (score >= 0.40 ? 0.20 : 0),
+                face: 0,
+                tampering: score >= 0.80 ? 0.20 : 0
+            }
+        };
+
+        const payload = {
+            verification_id: verifyId,
+            document_type: docType,
+            confidence_score: Math.max(0, score),
+            status: status,
+            detected_address: address,
+            verification_details: verificationDetails
+        };
+
+        const saveCandidates = [
+            `${API_V1_BASE}/save-verification`,
+            `${LEGACY_BASE}/save-verification`
+        ];
+
+        let response = null;
+        for (const url of saveCandidates) {
+            const attempted = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (attempted.status !== 404) {
+                response = attempted;
+                break;
+            }
+        }
+
+        if (!response) {
+            console.error('Failed to save verification record: no compatible endpoint found');
+            return;
+        }
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Verification record saved:', data);
+            sessionStorage.setItem('last_verification_id', verifyId);
+        } else {
+            console.error('Failed to save verification record:', response.status);
+        }
+    } catch (error) {
+        console.error('Error saving verification record:', error);
+    }
+}
+
+// BATCH PROCESSING JS
+document.getElementById('startBatchBtn').addEventListener('click', async () => {
+    const fileInput = document.getElementById('batchFolder');
+    const allFiles = Array.from(fileInput.files);
+    
+    // Filter only images
+    const imageFiles = allFiles.filter(f => f.type === 'image/jpeg' || f.type === 'image/png');
+    
+    if (imageFiles.length === 0) {
+        alert("No valid images (JPEG/PNG) found in the selected folder.");
+        return;
+    }
+    
+    // Hide UI, Show Batch Progress
+    document.getElementById('step-inputs-batch').style.display = 'none';
+    document.getElementById('step-processing').style.display = 'block';
+    document.getElementById('processText').innerText = "Initializing batch upload...";
+    
+    let accepted = 0;
+    let rejected = 0;
+    let startTime = Date.now();
+    
+    // Show grid and progress area (temporarily hide processing spinner)
+    document.getElementById('step-processing').style.display = 'none';
+    document.getElementById('step-results-batch').style.display = 'block';
+    document.getElementById('batchResultsGrid').innerHTML = '';
+    
+    const timeInterval = setInterval(() => {
+        const diff = Date.now() - startTime;
+        const mins = Math.floor(diff / 60000).toString().padStart(2, '0');
+        const secs = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+        document.getElementById('batchTimeElapsed').innerText = `${mins}:${secs}`;
+    }, 1000);
+    
+    for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
+        
+        // Update Progress UI
+        const percent = Math.round(((i) / imageFiles.length) * 100);
+        document.getElementById('batchProgressCount').innerText = `${i + 1}/${imageFiles.length}`;
+        document.getElementById('batchProgressBar').style.width = `${percent}%`;
+        
+        try {
+            // Process file through full endpoint
+            let formData = new FormData();
+            formData.append("file", file);
+            
+            // Just verify document for quick batch classification (using the core detection endpoint is faster)
+            // But we use /verify-full for risk scoring and address extraction consistency
+            let { response } = await postFormWithFallback('/verify-full', '/verify-document', formData);
+            if (!response || !response.ok) throw new Error("Endpoint failed");
+            
+            let data = await response.json();
+            
+            // Assume 0.40 since we lowered it earlier.
+            let confidence = 0;
+            let docType = "Unknown";
+            let ocrAddress = "Not Output";
+            let status = "rejected";
+            let risk_score = 100;
+            
+            // Handle different JSON shapes
+            if (data.results && data.results.length > 0) {
+                confidence = data.results[0].confidence || 0;
+                docType = data.results[0].document_type || "Unknown";
+            } else if (data.document_info) {
+                confidence = data.document_info.confidence || 0;
+                docType = data.document_info.type || "Unknown";
+                ocrAddress = data.document_info.extracted_text || "Address not parsed in JSON form";
+            }
+            if (data.address_info) {
+                ocrAddress = data.address_info.address || 'Not detected';
+            }
+            
+            if (data.status === "verified" || confidence >= 0.40) {
+                accepted++;
+                status = "accepted";
+            } else {
+                rejected++;
+            }
+            
+            document.getElementById('batchAcceptedCount').innerText = accepted;
+            document.getElementById('batchRejectedCount').innerText = rejected;
+            
+            // Generate card in grid
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imgSrc = e.target.result;
+                const card = document.createElement('div');
+                card.style.cssText = `background: white; border-radius: 10px; border: 1px solid #e5e7eb; overflow: hidden; display: flex; flex-direction: column;`;
+                
+                const headerColor = status === 'accepted' ? '#ecfdf5' : '#fef2f2';
+                const badgeColor = status === 'accepted' ? '#10b981' : '#ef4444';
+                const badgeText = status === 'accepted' ? 'Γ£à Verified - ' + (confidence * 100).toFixed(0) + '%' : 'Γ¥î Rejected';
+                
+                card.innerHTML = `
+                    <div style="height: 140px; background: #f3f4f6; position: relative;">
+                        <img src="${imgSrc}" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div style="position: absolute; top: 8px; right: 8px; background: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.1); color: ${badgeColor};">
+                            ${badgeText}
+                        </div>
+                    </div>
+                    <div style="padding: 12px; background: ${headerColor}; flex: 1;">
+                        <p style="font-size: 11px; color: #6b7280; font-weight: 600; margin: 0 0 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.name}">${file.name}</p>
+                        <p style="font-size: 13px; font-weight: 700; color: #111827; margin: 0 0 8px 0;">${docType}</p>
+                        <div style="background: white; padding: 8px; border-radius: 6px; font-size: 11px; color: #4b5563; min-height: 40px; word-break: break-word;">
+                            ${ocrAddress}
+                        </div>
+                    </div>
+                `;
+                // Insert at top so newest is visible
+                document.getElementById('batchResultsGrid').insertAdjacentElement('afterbegin', card);
+            };
+            reader.readAsDataURL(file);
+            
+        } catch(e) {
+            rejected++;
+            document.getElementById('batchRejectedCount').innerText = rejected;
+            console.error("Batch failure for file:", file.name, e);
+        }
+    }
+    
+    clearInterval(timeInterval);
+    document.getElementById('batchProgressCount').innerText = "Complete";
+    document.getElementById('batchProgressBar').style.width = `100%`;
+    document.getElementById('finishBatchBtn').style.display = 'block';
+});
+</script>
+</body>
+</html>
