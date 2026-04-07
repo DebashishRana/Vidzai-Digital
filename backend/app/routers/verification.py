@@ -9,12 +9,23 @@ import cv2
 from pathlib import Path
 import random
 
-try:
-    from keras_facenet import FaceNet
-    FACENET_IMPORT_ERROR = None
-except Exception as _facenet_error:
-    FaceNet = None
-    FACENET_IMPORT_ERROR = _facenet_error
+FaceNet = None
+FACENET_IMPORT_ERROR = None
+
+def _load_facenet():
+    """Lazy load FaceNet to delay TensorFlow initialization."""
+    global FaceNet, FACENET_IMPORT_ERROR
+    if FaceNet is not None:
+        return FaceNet
+    try:
+        from keras_facenet import FaceNet as FaceNetModel
+        FaceNet = FaceNetModel
+        FACENET_IMPORT_ERROR = None
+        return FaceNet
+    except Exception as e:
+        FaceNet = None
+        FACENET_IMPORT_ERROR = e
+        return None
 
 from app.services.document_detector import detect_and_classify
 from app.services.ocr_service import extract_text
@@ -146,6 +157,7 @@ embedder = None
 def get_embedder():
     """Lazy load FaceNet embedder to avoid startup delays."""
     global embedder
+    FaceNet = _load_facenet()
     if FaceNet is None:
         raise RuntimeError(
             f"Face verification dependency unavailable: {FACENET_IMPORT_ERROR}"
@@ -305,6 +317,7 @@ async def verify_face_endpoint(
 async def face_verification_status():
     """Check FaceNet model status and configuration."""
     try:
+        FaceNet = _load_facenet()
         if FaceNet is None:
             return {
                 "status": "not_ready",

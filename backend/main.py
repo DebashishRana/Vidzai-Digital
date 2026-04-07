@@ -10,7 +10,7 @@ from pathlib import Path
 import shutil
 
 from app.address_detection import get_detector, initialize_detector
-from app.routers import verification, document, dashboard, verification_logs
+from app.routers import verification, document, dashboard, verification_logs, address
 
 app = FastAPI(title="eKYC Address Detector", version="1.0.0")
 
@@ -28,6 +28,12 @@ app.include_router(verification.router)
 app.include_router(document.router)
 app.include_router(dashboard.router)
 app.include_router(verification_logs.router)
+# Expose v1-prefixed routes as well (frontend prefers /api/v1/*)
+app.include_router(verification.router, prefix="/api/v1")
+app.include_router(document.router, prefix="/api/v1")
+app.include_router(verification_logs.router, prefix="/api/v1")
+app.include_router(dashboard.router, prefix="/api/v1/dashboard")
+app.include_router(address.router, prefix="/api/v1")
 
 @app.on_event("startup")
 async def startup_event():

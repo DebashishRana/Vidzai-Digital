@@ -152,9 +152,153 @@ class AddressDetector:
         "marg",
         "path",
         "highway", "nh", "sh",
-        "bypass"
+        "bypass",
         "road",
         "ring road",
+    }
+
+    # Higher-priority keyword buckets specifically for Aadhaar address blocks.
+    # Used for weighted scoring (not hard-rejection).
+    AADHAAR_ADDRESS_KEYWORDS = {
+        "residential": {
+            "house", "h.no", "hno", "house no",
+            "plot", "plot no",
+            "door no", "d.no",
+            "flat", "floor",
+            "apartment", "building",
+            "block", "sector",
+        },
+        "locality": {
+            "nagar", "colony", "layout",
+            "mohalla", "moh",
+            "area", "locality",
+            "phase", "extension", "ext",
+        },
+        "rural": {
+            "village", "vill", "gaon",
+            "panchayat",
+            "tehsil", "taluk", "mandal",
+            "district", "dist",
+            "khasra", "khasra no",
+            "khata",
+            "ward", "ward no",
+        },
+        "postal": {
+            "post", "post office", "po",
+            "sub post office", "spo",
+            "head post office", "hpo",
+            "pin", "pincode", "pin code",
+        },
+        "road": {
+            "road", "rd",
+            "street", "st",
+            "lane",
+            "marg", "path",
+            "main", "cross",
+            "highway", "nh", "sh",
+            "bypass", "ring road",
+        },
+        "landmark": {
+            "near", "nearby",
+            "behind",
+            "opposite", "opp",
+            "beside",
+            "in front of",
+            "landmark",
+        },
+        "building": {
+            "tower", "complex",
+            "residency", "residence",
+            "villa", "villas",
+            "heights",
+            "plaza",
+            "mall",
+            "market",
+            "chowk",
+        }
+    }
+
+    _AADHAAR_KW_WEIGHTS = {
+        "residential": 4.0,
+        "postal": 3.5,
+        "road": 3.0,
+        "locality": 2.5,
+        "rural": 2.5,
+        "landmark": 2.0,
+        "building": 2.0,
+    }
+
+    _LINE_BLACKLIST_PHRASES = {
+        "aadhaar app",
+        "secure qr",
+        "qr code",
+        "offline xml",
+        "xml",
+        "enrolment",
+        "enrollment",
+        "enrolment no",
+        "enrollment no",
+        "unique identification authority",
+        "uidai",
+        "government of india",
+        "information",
+        "authentication",
+        "digitally signed",
+        "download date",
+        "issue date",
+        "help@uidai",
+        "www.uidai.gov.in",
+        # Common Aadhaar disclaimer text fragments (often leaks into address OCR)
+        "electronically generated",
+        "proof of identity",
+        "not of citizenship",
+        "to establish identity",
+        "authenticate online",
+        "enrolment",
+        "enrollment",
+        "enrolment no",
+        "enrollment no",
+        "virtual id",
+        "vid",
+    }
+
+    # Regexes to strip from merged OCR address candidates (boilerplate + OCR artifacts).
+    _NOISE_REGEXES = [
+        # Aadhaar boilerplate / disclaimers
+        r"\bthis\s+is\s+electronically\s+generated\s+letter\b",
+        r"\baadhaar\s+is\s+a\s+proof\s+of\s+identity\b",
+        r"\bnot\s+of\s+citizenship\b",
+        r"\bto\s+establish\s+identity\b",
+        r"\bauthenticate\s+online\b",
+        r"\bvirtual\s+id\b",
+        r"\bvid\b",
+        r"\benrol(?:ment|lment)\s*(?:no|number)?\b",
+        r"\benrol(?:ment|lment)\s*(?:no|number)?\s*[:\-]?\s*[\w/.\-]+\b",
+        r"\benroll(?:ment|lment)\s*(?:no|number)?\b",
+        r"\benroll(?:ment|lment)\s*(?:no|number)?\s*[:\-]?\s*[\w/.\-]+\b",
+        r"\bunique\s+identification\s+authority\s+of\s+india\b",
+        r"\buidai\b",
+        r"\bgovernment\s+of\s+india\b",
+        r"\binformation\b",
+        # Common OCR artifacts / stray tokens
+        r"\bf\s*-\b",
+        r"\be1r\b",
+        r"\b7uat\b",
+        r"\b7uat\}\b",
+        r"\b[a-z]\d[a-z]\b",  # e.g. e1r
+        r"\b\d[a-z]{2,}\b",   # digit + letters chunks
+    ]
+
+    _INDIA_STATE_CITY_HINTS = {
+        # States/UTs (common in addresses)
+        "maharashtra", "gujarat", "karnataka", "tamil nadu", "tamilnadu", "kerala", "telangana",
+        "andhra pradesh", "uttar pradesh", "madhya pradesh", "rajasthan", "punjab", "haryana",
+        "west bengal", "bihar", "odisha", "assam", "jharkhand", "chhattisgarh", "goa",
+        "delhi", "new delhi",
+        # Cities/areas (lightweight hints; not exhaustive)
+        "pune", "mumbai", "nagpur", "nashik", "thane", "bengaluru", "bangalore", "hyderabad",
+        "chennai", "kolkata", "ahmedabad", "surat", "jaipur", "lucknow",
+        "wagholi",
     }
 
     DOB_PATTERNS = [
@@ -168,13 +312,9 @@ class AddressDetector:
 
     def __init__(self):
         print("Loading models...")
-        # Load YOLO model used for localizing address text regions.
-        try:
-            model_path = MODELS_DIR / "yolov8n.pt"
-            self.model = YOLO(model_path)
-        except Exception as e:
-            print(f"Warning: YOLO load failed: {str(e)}")
-            self.model = None
+        # YOLO is NOT used anymore - skipping
+        self.model = None
+        print("YOLO skipped (not needed for Aadhaar address extraction)")
 
         print("Initializing EasyOCR...")
         try:
@@ -183,7 +323,7 @@ class AddressDetector:
             print(f"Warning: EasyOCR init failed: {str(e)}")
             self.reader = None
         
-        print("✅ Models loaded successfully")
+        print("✅ Address detector initialized (OCR-based, YOLO-free)")
 
     @staticmethod
     def _clean_text(text: str) -> str:
@@ -204,43 +344,179 @@ class AddressDetector:
 
     @staticmethod
     def _extract_address_from_lines(lines: list[str]) -> str:
+        """
+        Ultra-robust address extraction using aggressive keyword matching.
+        Strategy: ACCEPT aggressively if address-like, REJECT only if clearly not.
+        """
         if not lines:
             _dbg("H5", "backend/app/address_detection.py:_extract_address_from_lines", "No OCR lines to score", {"lines": 0})
             return ""
+        
+        print(f"🔍 Processing {len(lines)} OCR lines for address extraction...")
 
-        address_keywords = {
-            "address", "road", "rd", "street", "st", "lane", "ln", "nagar",
-            "district", "state", "india", "pin", "pincode", "sector", "colony",
-            "village", "plot", "flat", "apt", "apartment", "marg",
-            "house", "h.no", "hno", "house no", "plot no", "door no", "d.no",
-            "khata", "khasra", "khasra no", "mohalla", "moh", "vill", "gaon",
-            "ward", "ward no", "panchayat", "tehsil", "taluk", "mandal", "dist",
-            "post", "post office", "po", "sub post office", "spo", "head post office", "hpo",
-            "pin code", "area", "locality", "phase", "extension", "ext", "main", "cross",
-            "layout", "tower", "complex", "residency", "residence", "villa", "villas",
-            "heights", "plaza", "mall", "market", "chowk", "landmark", "opp", "opposite",
-            "beside", "nearby", "in front of", "path", "highway", "nh", "sh", "bypass", "ring road"
-        }
-        non_address_markers = {
-            "name", "dob", "birth", "gender", "aadhaar", "aadhar", "government",
-            "uidai", "father", "husband"
-        }
+        # TIER 0: Aadhaar "To" block heuristic (most reliable for Aadhaar letters/cards)
+        # If we see a "To" marker, scan forward until we hit a PIN line and join the
+        # non-noise lines along the way.
+        cleaned = [AddressDetector._clean_text(l) for l in lines]
+        to_idxs = []
+        for i, l in enumerate(cleaned):
+            low = (l or "").strip().lower()
+            if low == "to" or low.startswith("to "):
+                to_idxs.append(i)
 
-        scored: list[tuple[float, int, str]] = []
+        def _looks_like_pin_line(s: str) -> bool:
+            return bool(re.search(r"\b\d{6}\b", s or ""))
+
+        def _is_bad_address_line(s: str) -> bool:
+            low = (s or "").lower()
+            if not s or len(s) < 2:
+                return True
+            if any(p.search(s) for p in AddressDetector.DISALLOWED_ID_PATTERNS):
+                return True
+            if any(p.search(s) for p in AddressDetector.DOB_PATTERNS):
+                return True
+            # For Aadhaar, treat common header/footer phrases as noise lines,
+            # but do not globally reject the whole candidate later.
+            for phrase in AddressDetector._LINE_BLACKLIST_PHRASES:
+                if phrase in low:
+                    return True
+            return False
+
+        def _weighted_keyword_score(text: str) -> float:
+            t = (text or "").lower()
+            score = 0.0
+            # Weighted Aadhaar keyword buckets
+            for bucket, kws in AddressDetector.AADHAAR_ADDRESS_KEYWORDS.items():
+                hits = sum(1 for kw in kws if re.search(rf"\b{re.escape(kw)}\b", t))
+                if hits:
+                    score += hits * float(AddressDetector._AADHAAR_KW_WEIGHTS.get(bucket, 1.0))
+            # Generic address keyword presence (small boost)
+            score += 0.5 * float(AddressDetector._term_hits(text, AddressDetector.POSITIVE_ADDRESS_KEYWORDS))
+            # Boost common India state/city hints (helps when OCR misses keywords)
+            score += 1.25 * sum(1 for h in AddressDetector._INDIA_STATE_CITY_HINTS if re.search(rf"\b{re.escape(h)}\b", t))
+            return score
+
+        def _alpha_ratio(text: str) -> float:
+            s = text or ""
+            if not s:
+                return 0.0
+            alpha = sum(1 for c in s if c.isalpha())
+            digits = sum(1 for c in s if c.isdigit())
+            denom = max(1, alpha + digits)
+            return alpha / denom
+
+        def _candidate_score(text: str) -> float:
+            t = (text or "").strip()
+            low = t.lower()
+            if not t:
+                return -1e9
+            # Strongly penalize footer/header noise if it slipped in
+            if any(p in low for p in AddressDetector._LINE_BLACKLIST_PHRASES):
+                return -50.0
+            # Prefer multi-line / longer but not pure gibberish
+            kw = _weighted_keyword_score(t)
+            has_pin = 3.5 if re.search(r"\b\d{6}\b", t) else 0.0
+            ar = _alpha_ratio(t)
+            digit_heavy_penalty = 6.0 * max(0.0, 0.55 - ar)  # penalize low alpha ratio
+            length_bonus = min(8.0, len(t) / 30.0)
+            return (kw * 2.0) + has_pin + length_bonus - digit_heavy_penalty
+
+        def _strip_disclaimer_phrases(text: str) -> str:
+            """
+            Remove common Aadhaar disclaimer fragments that sometimes get OCR-merged
+            into the address lines (without dropping the entire address).
+            """
+            t = AddressDetector._clean_text(text)
+            for p in AddressDetector._NOISE_REGEXES:
+                t = re.sub(p, " ", t, flags=re.IGNORECASE)
+
+            # Collapse spaces and trim again.
+            t = re.sub(r"\s+", " ", t).strip()
+            return t
+
+        for to_i in to_idxs[:2]:
+            window = []
+            pin_found = False
+            # OCR order can be noisy; give a wider scan window.
+            for j in range(to_i + 1, min(len(cleaned), to_i + 45)):
+                s = cleaned[j]
+                if _is_bad_address_line(s):
+                    continue
+                window.append(s)
+                if _looks_like_pin_line(s):
+                    pin_found = True
+                    break
+
+            # If PIN is on its own line (just 6 digits), also include prior 1-2 lines
+            if pin_found and window:
+                candidate = " ".join(window).strip()
+                # Require non-trivial address-likeness beyond just PIN
+                has_delims = bool(re.search(r"[,/#\-]", candidate))
+                has_numbers = bool(re.search(r"\d", candidate))
+                kw_score = _weighted_keyword_score(candidate)
+                if (has_numbers and (_candidate_score(candidate) >= 6.0 or (kw_score >= 2.0 and has_delims))) and len(candidate) >= 12:
+                    cleaned_candidate = _strip_disclaimer_phrases(candidate)
+                    print(f"  ✅ TIER 0 (To-block): {cleaned_candidate[:80]}  [score={_candidate_score(candidate):.2f}]")
+                    return cleaned_candidate
+        
+        # TIER 1: Look for lines with STRONG address keywords (highest confidence)
+        strong_address_lines = []
         for idx, raw_line in enumerate(lines):
             line = AddressDetector._clean_text(raw_line)
-            if len(line) < 4:
+            if len(line) < 3:
                 continue
-
-            if any(pattern.search(line) for pattern in AddressDetector.DOB_PATTERNS):
-                continue
-
-            # Reject Aadhaar/VID identity-number lines from address extraction.
+            
+            # REJECT only: Clear ID markers
             if any(pattern.search(line) for pattern in AddressDetector.DISALLOWED_ID_PATTERNS):
                 continue
+            
+            # REJECT only: 12-digit Aadhaar, DOB patterns
+            if any(pattern.search(line) for pattern in AddressDetector.DOB_PATTERNS):
+                continue
+            
+            # STRONG ACCEPT: Contains MULTIPLE address keywords
+            keyword_hits = AddressDetector._term_hits(line, AddressDetector.POSITIVE_ADDRESS_KEYWORDS)
+            if keyword_hits >= 2:
+                print(f"  ✅ TIER 1 (Multiple keywords): {line[:80]}")
+                strong_address_lines.append((idx, line, keyword_hits))
+        
+        if strong_address_lines:
+            result = max(strong_address_lines, key=lambda x: (x[2], len(x[1])))[1]
+            return AddressDetector._clean_text(result) if len(result) >= 5 else ""
+        
+        # TIER 2: PIN-anchored window candidates (most reliable when "To" scanning fails)
+        # Build candidates around any line that contains a 6-digit PIN by joining nearby non-noise lines.
+        pin_candidates: list[str] = []
+        pin_idxs = [i for i, l in enumerate(cleaned) if re.search(r"\b\d{6}\b", l or "")]
+        for pin_i in pin_idxs[:6]:
+            chunk: list[str] = []
+            for j in range(max(0, pin_i - 6), min(len(cleaned), pin_i + 2)):
+                s = cleaned[j]
+                if _is_bad_address_line(s):
+                    continue
+                chunk.append(s)
+            if chunk:
+                pin_candidates.append(AddressDetector._clean_text(" ".join(chunk)))
 
-            strong_hits = AddressDetector._term_hits(line, AddressDetector.STRONG_NEGATIVE_TERMS)
-            if strong_hits > 0:
+        if pin_candidates:
+            scored = [(c, _candidate_score(c)) for c in pin_candidates]
+            best_c, best_s = max(scored, key=lambda x: x[1])
+            # Only accept if it looks address-like (filters out numeric junk like "314641 ...")
+            if best_s >= 6.0 and len(best_c.split()) >= 3:
+                cleaned_candidate = _strip_disclaimer_phrases(best_c)
+                print(f"  ✅ TIER 2 (PIN-window): {cleaned_candidate[:80]}  [score={best_s:.2f}]")
+                return cleaned_candidate
+
+        # Legacy TIER 2: Lines with postal code + other address markers (kept as fallback)
+        postal_lines = []
+        for idx, raw_line in enumerate(lines):
+            line = AddressDetector._clean_text(raw_line)
+            if len(line) < 5:
+                continue
+            
+            if any(pattern.search(line) for pattern in AddressDetector.DISALLOWED_ID_PATTERNS):
+                continue
+            if any(pattern.search(line) for pattern in AddressDetector.DOB_PATTERNS):
                 continue
 
             medium_hits = AddressDetector._term_hits(line, AddressDetector.MEDIUM_NEGATIVE_TERMS)
@@ -258,15 +534,6 @@ class AddressDetector:
                 scored.append((score, idx, line))
 
         if not scored:
-            _dbg(
-                "H6",
-                "backend/app/address_detection.py:_extract_address_from_lines",
-                "No candidate lines survived scoring",
-                {
-                    "total_lines": len(lines),
-                    "sample_lines": [AddressDetector._clean_text(l)[:120] for l in lines[:6]],
-                },
-            )
             return ""
 
         scored.sort(key=lambda x: (-x[0], x[1]))
@@ -296,18 +563,6 @@ class AddressDetector:
         candidate = max((" ".join(group) for group in grouped), key=len)
         candidate = AddressDetector._clean_text(candidate)
 
-        _dbg(
-            "H7",
-            "backend/app/address_detection.py:_extract_address_from_lines",
-            "Built address candidate from scored groups",
-            {
-                "total_lines": len(lines),
-                "scored_lines": len(scored),
-                "best_score": best_score,
-                "candidate_preview": candidate[:200],
-            },
-        )
-
         if any(pattern.search(candidate) for pattern in AddressDetector.DOB_PATTERNS):
             return ""
 
@@ -332,12 +587,16 @@ class AddressDetector:
     
     def detect_and_extract(self, image_path: str) -> Optional[Dict]:
         """
-        Detect address region in image and extract text via OCR.
+        SIMPLE & FAST: Extract address from any document using OCR + text logic.
+        Works on Aadhaar, PAN, invoices - NO YOLO model needed anymore.
         """
         try:
+            if self.reader is None:
+                print("❌ Warning: OCR reader unavailable")
+                return None
+
             img = cv2.imread(image_path)
             if img is None:
-                _dbg("H8", "backend/app/address_detection.py:detect_and_extract", "cv2.imread returned None", {"image_path": str(image_path)})
                 return None
 
             h, w = img.shape[:2]
@@ -367,7 +626,6 @@ class AddressDetector:
 
             if self.reader is None:
                 print("Warning: OCR reader unavailable, skipping address extraction")
-                _dbg("H9", "backend/app/address_detection.py:detect_and_extract", "EasyOCR reader unavailable", {"has_model": bool(self.model)})
                 return None
 
             # OCR extraction on detected crop, with full-image fallback if needed
@@ -379,30 +637,30 @@ class AddressDetector:
             confs = []
             for item in ocr_result:
                 if len(item) >= 3:
-                    lines.append(str(item[1]))
+                    text = str(item[1]).strip()
+                    if text:
+                        lines.append(text)
                     try:
                         confs.append(float(item[2]))
                     except Exception:
                         pass
 
+            print(f"📄 OCR extracted {len(lines)} text lines:")
+            for i, line in enumerate(lines[:20]):  # Show first 20 lines
+                print(f"   [{i}] {line[:100]}")
+            if len(lines) > 20:
+                print(f"   ... and {len(lines) - 20} more lines")
+
+            # Extract address using logic (no YOLO required)
+            print("\n🔎 Starting address extraction logic...")
             clean_address = self._extract_address_from_lines(lines)
+            
             if not clean_address:
-                _dbg(
-                    "H10",
-                    "backend/app/address_detection.py:detect_and_extract",
-                    "OCR ran but address extraction returned empty",
-                    {
-                        "ocr_items": len(ocr_result) if ocr_result is not None else None,
-                        "lines_count": len(lines),
-                        "lines_preview": [self._clean_text(l)[:120] for l in lines[:6]],
-                        "yolo_used": bool(self.model),
-                        "yolo_conf": yolo_conf,
-                    },
-                )
                 return None
 
-            ocr_conf = float(np.mean(confs)) if confs else 0.0
-            confidence = ocr_conf if yolo_conf <= 0 else (0.6 * ocr_conf + 0.4 * yolo_conf)
+            print(f"\n✅ Address Found: {clean_address}")
+            # Confidence from OCR only
+            confidence = float(np.mean(confs)) if confs else 0.75
             confidence = float(max(0.0, min(1.0, confidence)))
 
             return {
@@ -412,7 +670,9 @@ class AddressDetector:
             }
             
         except Exception as e:
-            print(f"Error processing {image_path}: {str(e)}")
+            print(f"❌ Error processing {image_path}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
 
 
